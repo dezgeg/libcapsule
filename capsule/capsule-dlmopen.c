@@ -913,8 +913,112 @@ cleanup_ldlibs (ldlibs_t *ldlibs)
     ldlibs->error = NULL;
 }
 
+static const char *
+_rtldstr(int flag)
+{
+    char flags[160] = { 0 };
+    char *f = &flags[0];
+
+    if( !flag)
+        return "LOCAL";
+
+#define RTLDFLAGSTR(x) \
+    if( x & flag ) f += snprintf(f, &flags[80] - f, " %s", & #x [5])
+
+    RTLDFLAGSTR(RTLD_LAZY);
+    RTLDFLAGSTR(RTLD_NOW);
+    RTLDFLAGSTR(RTLD_NOLOAD);
+    RTLDFLAGSTR(RTLD_DEEPBIND);
+    RTLDFLAGSTR(RTLD_GLOBAL);
+    RTLDFLAGSTR(RTLD_NODELETE);
+
+    return ( flags[0] == ' ' ) ? &flags[1] : &flags[0];
+}
+
+// And now we actually open everything we have found, in reverse
+// dependency order (which prevents dlmopen from going and finding
+// DT_NEEDED values from outside the capsule), which it will do
+// if we don't work backwards:
+static void *
+load_ldlibs (ldlibs_t *ldlibs, Lmid_t *namespace, int flag, int *errcode, char **error)
+{
+    int go;
+    Lmid_t lm = (*namespace > 0) ? *namespace : LM_ID_NEWLM;
+    void *ret = NULL;
+
+    if( !flag )
+        flag = RTLD_LAZY;
+
+    do
+    {
+        go = 0;
+
+        for( int j = 0; j < DSO_LIMIT; j++ )
+        {
+            // reached the end of the list
+            if( !ldlibs->needed[j].name )
+                continue;
+
+            // library has no further dependencies which have not already
+            // been satisfied (except for the libc and linker DSOs),
+            // this means we can safely open it without dlmopen accidentally
+            // pulling in DSOs from outside the encapsulated tree:
+            if( ldlibs->needed[j].depcount == 0 )
+            {
+                const char *path = ldlibs->needed[j].path;
+                go++;
+
+                ldlib_debug( ldlibs, "DLMOPEN %p %s %s", (void *)lm, _rtldstr(flag), path );
+
+                // The actual dlmopen. If this was the first one, it may
+                // have created a new link map id, wich we record later on:
+
+                // note that since we do the opens in reverse dependency order,
+                // the _last_ one we open will be the DSO we actually asked for
+                // so if we succeed, ret has to contain the right handle.
+                ret = dlmopen( lm, path, flag );
+
+                if( !ret )
+                {
+                    if( error )
+                        *error = dlerror();
+
+                    if( errcode )
+                        *errcode = EINVAL;
+
+                    return NULL;
+                }
+
+                // If this was the first dlmopen, record the new LM Id
+                // for return to our caller:
+                if( lm == LM_ID_NEWLM )
+                {
+                    dlinfo( ret, RTLD_DI_LMID, namespace );
+                    lm = *namespace;
+                    ldlib_debug( ldlibs, "new Lmid_t handle %p\n", (void *)lm );
+                }
+
+                // go through the map of DSOs and reduce the dependency
+                // count for any DSOs which had the current DSO as a dep:
+                for( int k = 0; k < DSO_LIMIT; k++ )
+                    if( ldlibs->needed[j].requestors[k] )
+                        ldlibs->needed[k].depcount--;
+
+                clear_needed( &ldlibs->needed[j] );
+            }
+        }
+    } while (go);
+
+    return ret;
+}
+
 static void
-init_ldlibs (ldlibs_t *ldlibs, const char **exclude, int dbg)
+init_ldlibs (ldlibs_t *ldlibs,
+             const char **exclude,
+             const char *prefix,
+             int dbg,
+             int *errcode,
+             char **error)
 {
     memset( ldlibs, 0, sizeof(ldlibs_t) );
     ldlibs->cache_fd    = -1;
@@ -924,8 +1028,41 @@ init_ldlibs (ldlibs_t *ldlibs, const char **exclude, int dbg)
     ldlibs->exclude     = exclude;
     ldlibs->debug       = dbg;
 
+    if( errcode )
+        *errcode = 0;
+
     for( int x = 0; x < DSO_LIMIT; x++ )
         ldlibs->needed[x].fd = -1;
+
+    // ==================================================================
+    // set up the path prefix at which we expect to find the encapsulated
+    // library and its ld.so.cache and dependencies and so forth:
+    if( prefix )
+    {
+        size_t prefix_len = strlen( prefix );
+        ssize_t space = PATH_MAX - prefix_len;
+
+        // if we don't have at least this much space it's not
+        // going to work out:
+        if( (space - strlen( "/usr/lib/libx.so.x" )) <= 0 )
+        {
+            if( error )
+                *error = strdup( "capsule_dlmopen: prefix is too large" );
+
+            if( errcode )
+                *errcode = ENAMETOOLONG;
+
+            return;
+        }
+
+        safe_strncpy( ldlibs->prefix.path, prefix, PATH_MAX );
+        ldlibs->prefix.len = prefix_len;
+    }
+    else
+    {
+        ldlibs->prefix.path[0] = '\0';
+        ldlibs->prefix.len     = 0;
+    }
 }
 
 // ==========================================================================
@@ -1153,10 +1290,7 @@ capsule_dlmopen (const char *dso,
                  char **error)
 {
     void *ret = NULL;
-    Lmid_t lm = (*namespace > 0) ? *namespace : LM_ID_NEWLM;
-    ldlibs_t ldlibs = {};
-
-    init_ldlibs( &ldlibs, exclude, dbg );
+    ldlibs_t ldlibs = { 0 };
 
     if( elf_version(EV_CURRENT) == EV_NONE )
     {
@@ -1169,35 +1303,10 @@ capsule_dlmopen (const char *dso,
         return NULL;
     }
 
-    // ==================================================================
-    // set up the path prefix at which we expect to find the encapsulated
-    // library and its ld.so.cache and dependencies and so forth:
-    if( prefix )
-    {
-        size_t prefix_len = strlen( prefix );
-        ssize_t space = PATH_MAX - prefix_len;
+    init_ldlibs( &ldlibs, exclude, prefix, dbg, errcode, error );
 
-        // if we don't have at least this much space it's not
-        // going to work out:
-        if( (space - strlen( "/usr/lib/libx.so.x" )) <= 0 )
-        {
-            if( error )
-                *error = strdup( "capsule_dlmopen: prefix is too large" );
-
-            if( errcode )
-                *errcode = ENAMETOOLONG;
-
-            return NULL;
-        }
-
-        safe_strncpy( ldlibs.prefix.path, prefix, PATH_MAX );
-        ldlibs.prefix.len = prefix_len;
-    }
-    else
-    {
-        ldlibs.prefix.path[0] = '\0';
-        ldlibs.prefix.len     = 0;
-    }
+    if( errcode && *errcode )
+        return NULL;
 
     // ==================================================================
     // read in the ldo.so.cache - this will contain all architectures
@@ -1275,68 +1384,11 @@ capsule_dlmopen (const char *dso,
     }
 
     // ==================================================================
-    // And now we actually open everything we have found, in reverse
-    // dependency order (which prevents dlmopen from going and finding
-    // DT_NEEDED values from outside the capsule), which it will do
-    // if we don't work backwards.
-    int go;
+    // load the stack of DSOs we need:
+    ret = load_ldlibs( &ldlibs, namespace, 0, errcode, error );
 
-    do
-    {
-        go = 0;
-
-        for( int j = 0; j < DSO_LIMIT; j++ )
-        {
-            // reached the end of the list
-            if( !ldlibs.needed[j].name )
-                continue;
-
-            // library has no further dependencies which have not already
-            // been satisfied (except for the libc and linker DSOs),
-            // this means we can safely open it without dlmopen accidentally
-            // pulling in DSOs from outside the encapsulated tree:
-            if( ldlibs.needed[j].depcount == 0 )
-            {
-                const char *path = ldlibs.needed[j].path;
-                go++;
-
-                ldlib_debug( &ldlibs, "DLMOPEN %s %p", path, (void *)lm );
-
-                // The actual dlmopen. If this was the first one, it may
-                // have created a new link map id, wich we record later on:
-                ret = dlmopen( lm, path, RTLD_LAZY );
-
-                if( !ret )
-                {
-                    if( error )
-                        *error = dlerror();
-
-                    if( errcode )
-                        *errcode = EINVAL;
-
-                    goto cleanup;
-                }
-
-                // If this was the first dlmopen, record the new LM Id
-                // for return to our caller:
-                if( lm == LM_ID_NEWLM )
-                {
-                    dlinfo( ret, RTLD_DI_LMID, namespace );
-                    lm = *namespace;
-
-                    if( dbg )
-                        debug( "new Lmid_t handle %p\n", (void *)lm );
-                }
-
-                // go through the map of DSOs and reduce the dependency
-                // count for any DSOs which had the current DSO as a dep:
-                for( int k = 0; k < DSO_LIMIT; k++ )
-                    if( ldlibs.needed[j].requestors[k] )
-                        ldlibs.needed[k].depcount--;
-                clear_needed( &ldlibs.needed[j] );
-            }
-        }
-    } while (go);
+    if( !ret )
+        goto cleanup;
 
     // TODO: failure in the dlopen fixup phase should probably be fatal:
     if( ret        != NULL     &&    // no errors so far
