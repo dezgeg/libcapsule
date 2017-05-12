@@ -304,15 +304,13 @@ ldlib_open (ldlibs_t *ldlibs, const char *name, int i)
 {
     const int dflag = ldlibs->debug;
 
-    if( ldlibs->debug )
-        debug( "ldlib_open: target -: %s", ldlibs->needed[i].path );
+    ldlib_debug( ldlibs, "ldlib_open: target -: %s", ldlibs->needed[i].path );
 
     ldlibs->debug = 0;
     resolve_symlink_prefixed( ldlibs, i );
     ldlibs->debug = dflag;
 
-    if( ldlibs->debug )
-        debug( "ldlib_open: target +: %s", ldlibs->needed[i].path );
+    ldlib_debug( ldlibs, "ldlib_open: target +: %s", ldlibs->needed[i].path );
 
     ldlibs->needed[i].fd = open( ldlibs->needed[i].path, O_RDONLY );
 
@@ -452,8 +450,8 @@ search_ldpath (const char *name, const char *ldpath, ldlibs_t *ldlibs, int i)
     prefix[plen] = '\0';
 
     sanitise_ldlibs(ldlibs);
-    debug( "searching for %s in %s (prefix: %s)",
-           name, ldpath, plen ? prefix : "-none-" );
+    ldlib_debug( ldlibs, "searching for %s in %s (prefix: %s)",
+                 name, ldpath, plen ? prefix : "-none-" );
 
     while( sp && *sp )
     {
@@ -469,7 +467,7 @@ search_ldpath (const char *name, const char *ldpath, ldlibs_t *ldlibs, int i)
         safe_strncpy( prefix + plen, sp, len + 1);
         prefix[plen + len + 1] = '\0';
 
-        debug("  searchpath element: %s", prefix);
+        ldlib_debug( ldlibs, "  searchpath element: %s", prefix );
         // append the target name, without overflowing, then resolve
         if( (plen + len + strlen( name ) + 1 < PATH_MAX) )
         {
@@ -477,7 +475,7 @@ search_ldpath (const char *name, const char *ldpath, ldlibs_t *ldlibs, int i)
             safe_strncpy( prefix + plen + len + 1, name,
                           PATH_MAX - plen - len - 1 );
 
-            debug( "examining %s", prefix );
+            ldlib_debug( ldlibs, "examining %s", prefix );
             if( realpath( prefix, ldlibs->needed[i].path ) &&
                 ldlib_open( ldlibs, name, i ) )
                 return 1;
