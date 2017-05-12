@@ -57,6 +57,8 @@ GENSTUB    = $(GENSTUB_V$(V))
 CLEANFILES 			   = $(shim_files) $(shim_srcs)
 BUILT_SOURCES 		   = $(shim_srcs)
 
+include disabled.mk
+
 shim/lib%.so.c: generate-stublib.sh print-libstubs capsule-shim.h shim/lib%.so.c.excluded shim/lib%.so.c.shared
 	$(GENSTUB)$(top_srcdir)/$< $$(basename $@ .c) $@.excluded $@.shared $@
 
