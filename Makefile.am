@@ -65,7 +65,3 @@ debug:
 	@echo srcs : $(shim_srcs)
 	@echo files: $(shim_files)
 
-#zshim/libz-api.c: generate-shimapi.pl find-include.sh 
-#	@(inc=$$($(top_srcdir)/find-include.sh $(ZLIB_CFLAGS) -izlib.h); \
-#	  gcc -E $$inc | $(top_srcdir)/generate-shimapi.pl) > $@
-
