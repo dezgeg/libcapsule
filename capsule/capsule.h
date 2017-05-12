@@ -41,8 +41,7 @@ void *capsule_dlmopen (const char *dso,
                        int *errcode,
                        char **error);
 
-void *capsule_shim_dlopen(void *handle,
-                          Lmid_t ns,
+void *capsule_shim_dlopen(Lmid_t ns,
                           const char *prefix,
                           const char **exclude,
                           const char *file,

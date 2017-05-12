@@ -1404,8 +1404,7 @@ cleanup:
 }
 
 void *
-capsule_shim_dlopen(void *handle,
-                    Lmid_t ns,
+capsule_shim_dlopen(Lmid_t ns,
                     const char *prefix,
                     const char **exclude,
                     const char *file,
@@ -1414,37 +1413,58 @@ capsule_shim_dlopen(void *handle,
     void *res;
     int code = 0;
     char *errors = NULL;
+    ldlibs_t ldlibs = { 0 };
 
-    debug("capsule dlopen() wrapper: handle: %p; LMID: %ld; prefix: %s", handle, ns, prefix );
-    debug("  target: %s; flags: %d", file, flag);
+    debug( ">>>> capsule dlopen(%s, %x) wrapper: LMID: %ld; prefix: %s;",
+           file, flag, ns, prefix );
 
-    if( !handle )
-        return NULL;
-
-    // we have an absolute file path and a significant path prefix:
-    if( file   && *file == '/' &&
-        prefix && strcmp(prefix, "/") )
+    if( prefix && strcmp(prefix, "/") )
     {
-        char path[PATH_MAX];
-        const size_t l = strlen( prefix );
+        init_ldlibs( &ldlibs, exclude, prefix, 1, &code, &errors );
 
-        safe_strncpy( path, prefix, PATH_MAX );
-        path[ l ] = '/';
-        safe_strncpy( path + l + 1, file, PATH_MAX );
+        if( !load_ld_cache( &ldlibs, "/etc/ld.so.cache" ) )
+        {
+            int rv = (errno == 0) ? EINVAL : errno;
 
-        debug("RE-MAPPED dlopen target '%s' to '%s'\n", file, path);
+            debug( "Loading ld.so.cache from %s (error: %d)", prefix, rv );
+            goto cleanup;
+        }
 
-        res =
-          capsule_dlmopen( path, prefix, &ns, NULL, 0, exclude, &code, &errors );
+        if( !dso_find( file, &ldlibs, 0 ) )
+        {
+            int rv = (errno == 0) ? EINVAL : errno;
+
+            debug( "<<<< Not found: %s under %s (error: %d)", file, prefix, rv );
+            goto cleanup;
+        }
+
+        dso_iterate_sections( &ldlibs, 0 );
+
+        if( ldlibs.error )
+        {
+            debug( "<<<< capsule dlopen error: %s", ldlibs.error );
+            goto cleanup;
+        }
+
+        res = load_ldlibs( &ldlibs, &ns, flag, &code, &errors );
 
         if( !res )
-            debug("capsule_shim_dlopen failed: (%d) %s\n", code, errors);
+        {
+            debug( "<<<< capsule dlopen error %d: %s", code, errors );
+            goto cleanup;
+        }
     }
-    else
+    else // no prefix: straightforward dlmopen into our capsule namespace:
     {
-        debug("No prefix, opening %s in private namespace %p", file, (void *)ns);
-        res = dlmopen( ns, file, RTLD_NOW );
+        res = dlmopen( ns, file, flag );
+
+        if( !res )
+            debug( "<<<< capsule dlopen error %s: %s", file, dlerror() );
     }
 
+    return res;
+
+cleanup:
+    cleanup_ldlibs( &ldlibs );
     return res;
 }
