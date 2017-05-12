@@ -327,6 +327,13 @@ ldlib_open (ldlibs_t *ldlibs, const char *name, int i)
         else
             acceptable = check_elf_constraints( ldlibs, i );
 
+        ldlib_debug( ldlibs, "[%03d] %s on fd #%d; elf: %p; acceptable: %d",
+                     i,
+                     ldlibs->needed[i].path,
+                     ldlibs->needed[i].fd  ,
+                     ldlibs->needed[i].dso ,
+                     acceptable );
+
         if( !acceptable )
             clear_needed( &ldlibs->needed[i] );
         else
