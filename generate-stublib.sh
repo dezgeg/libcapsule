@@ -34,23 +34,26 @@ echo -n > $proxy_src.map;
 exec >& $proxy_src;
 
 cat $top/capsule-shim.h;
-for proxied_target in $proxied_dso $(cat $proxy_extra);
+
+for pt in $proxied_dso $(cat $proxy_extra);
 do
-    while read symbol version dependency;
-    do
-        case $version in
-            @*)
-                echo "VERSIONED_STUB  ( $symbol, $version );";
-                node=${version##*@};
-                NODE[$node]=${NODE[$node]:-}" "$symbol;
-                ;;
-            *)
-                echo "UNVERSIONED_STUB( $symbol );";
-                ;;
-        esac;
-        echo "         { \"$symbol\" }," >> $proxy_src.symbols
-    done < <($top/print-libstubs $proxied_target);
-done;
+    $top/print-libstubs $pt;
+done > $proxy_src.symbols;
+
+while read symbol version dependency;
+do
+    case $version in
+        @*)
+            echo "VERSIONED_STUB  ( $symbol, $version );";
+            node=${version##*@};
+            NODE[$node]=${NODE[$node]:-}" "$symbol;
+            ;;
+        *)
+            echo "UNVERSIONED_STUB( $symbol );";
+            ;;
+    esac;
+done < $proxy_src.symbols;
+
 cat - <<EOF
 static Lmid_t symbol_ns;
 static char *prefix;
@@ -63,6 +66,7 @@ static const char *exclude[] = { // MUST NOT be pulled from the capsule prefixed
                                  "libpthread-2.19.so",
                                  "libdl.so.2",
 EOF
+
 while read excluded x;
 do
     case $excluded in lib*) printf "%32s \"%s\",\n" "" $excluded; ;; esac;
@@ -84,7 +88,9 @@ static void __attribute__ ((constructor)) _capsule_init (void)
      capsule_item_t relocs[] =
        {
 EOF
-cat $proxy_src.symbols;
+
+while read sym x; do echo "         { \"$sym\" },"; done < $proxy_src.symbols;
+
 cat - <<EOF
          { NULL }
        };
