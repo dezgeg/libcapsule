@@ -508,6 +508,7 @@ dso_find (const char *name, ldlibs_t *ldlibs, int i)
 {
     int found = 0;
     const char *ldpath = NULL;
+    int absolute = (name && (name[0] == '/'));
 
     // absolute path, or relative to CWD:
     if( strchr( name, '/' ) )
@@ -538,9 +539,13 @@ dso_find (const char *name, ldlibs_t *ldlibs, int i)
             target = name;
         }
 
+        ldlib_debug( ldlibs, "resolving path %s", target );
         if( realpath( target, ldlibs->needed[i].path ) )
             return ldlib_open( ldlibs, name, i );
     }
+
+    if( absolute )
+        return 0;
 
     if( (ldpath = getenv( "LD_LIBRARY_PATH" )) )
         if( (found = search_ldpath( name, ldpath, ldlibs, i )) )
