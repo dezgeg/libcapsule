@@ -76,7 +76,13 @@ cat - <<EOF
 
 static void *_dlopen (const char *filename, int flag)
 {
-    return capsule_shim_dlopen( dso, symbol_ns, prefix, exclude, filename, flag );
+    if( flag & RTLD_GLOBAL )
+    {
+        fprintf (stderr, "Warning: libcapsule dlopen wrapper cannot pass "
+                         "RTLD_GLOBAL to underlying dlmopen(%s...) call\\n", filename );
+        flag = (flag & ~RTLD_GLOBAL) & 0xfffff;
+    }
+    return capsule_shim_dlopen( symbol_ns, prefix, exclude, filename, flag );
 }
 
 static void __attribute__ ((constructor)) _capsule_init (void)
