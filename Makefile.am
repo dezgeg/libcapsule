@@ -54,11 +54,10 @@ GENSTUB_V1 =
 GENSTUB_V0 = @echo "  GENSTUB " $@.excluded $@.shared $@;
 GENSTUB    = $(GENSTUB_V$(V))
 
-CLEANFILES 			   = $(shim_files)
+CLEANFILES 			   = $(shim_files) $(shim_srcs)
 BUILT_SOURCES 		   = $(shim_srcs)
 
-shim/%.so.c: shim/%.excluded shim/%.shared
-shim/%.so.c: generate-stublib.sh capsule-shim.h print-libstubs
+shim/lib%.so.c: generate-stublib.sh print-libstubs capsule-shim.h shim/lib%.so.c.excluded shim/lib%.so.c.shared
 	$(GENSTUB)$(top_srcdir)/$< $$(basename $@ .c) $@.excluded $@.shared $@
 
 debug:
