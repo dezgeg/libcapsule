@@ -60,7 +60,8 @@ static char *prefix;
 static void *dso;
 // should we exclude libpthread here?
 // in any case, these are DSOs we do _not_ want to isolate
-static const char *exclude[] = { // MUST NOT be pulled from the capsule prefixed filesystem tree:
+static const char *exclude[] = { // MUST NOT be pulled from the capsule
+                                 // prefixed filesystem tree:
                                  "libc.so.6",
                                  "libpthread.so.0",
                                  "libpthread-2.19.so",
@@ -78,8 +79,9 @@ static void *_dlopen (const char *filename, int flag)
 {
     if( flag & RTLD_GLOBAL )
     {
-        fprintf (stderr, "Warning: libcapsule dlopen wrapper cannot pass "
-                         "RTLD_GLOBAL to underlying dlmopen(%s...) call\\n", filename );
+        fprintf( stderr, "Warning: libcapsule dlopen wrapper cannot pass "
+                         "RTLD_GLOBAL to underlying dlmopen(%s...) call\\n",
+                 filename );
         flag = (flag & ~RTLD_GLOBAL) & 0xfffff;
     }
     return capsule_shim_dlopen( symbol_ns, prefix, exclude, filename, flag );
