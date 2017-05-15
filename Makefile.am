@@ -18,7 +18,7 @@
 V                     ?= 0
 AUTOMAKE_OPTIONS 	   = subdir-objects
 ACLOCAL_AMFLAGS        = -I m4
-AM_CFLAGS 			   = --std=c99 -D_GNU_SOURCE -Og -ggdb -Wall 
+AM_CFLAGS 			   = --std=c99 -D_GNU_SOURCE -Wall
 
 bin_PROGRAMS 		   = elf-dump print-libstubs
 lib_LTLIBRARIES 	   = libcapsule.la libz.la libGL.la
