@@ -41,17 +41,18 @@ libcapsule_la_LDFLAGS  = -lelf
 
 libz_la_SOURCES        = shim/libz.so.c
 libz_la_LDFLAGS        = -lcapsule -version-info 1:1:0 \
-                         -Wl,--version-script=shim/libz.so.c.map
+                         -Wl,--version-script=shim/libz.so.map
 
 libGL_la_SOURCES       = shim/libGL.so.c
 libGL_la_LDFLAGS       = -lcapsule -version-info 1:1:0
 
 shims      = z GL
 shim_srcs  = $(foreach l,$(shims),shim/lib$l.so.c)
-shim_files = $(foreach y,map symbols,$(foreach x,$(shim_srcs),$x.$y))
+shim_base  = $(basename $(shim_srcs))
+shim_files = $(foreach y,map symbols,$(foreach x,$(shim_base),$x.$y))
 
 GENSTUB_V1 = 
-GENSTUB_V0 = @echo "  GENSTUB " $@.excluded $@.shared $@;
+GENSTUB_V0 = @echo "  GENSTUB " $(subst $(word 1, $(basename $(filter shim/lib%,$^))),,$(filter shim/lib%,$^)) : $@;
 GENSTUB    = $(GENSTUB_V$(V))
 
 CLEANFILES 			   = $(shim_files) $(shim_srcs)
@@ -59,7 +60,9 @@ BUILT_SOURCES 		   = $(shim_srcs)
 
 include disabled.mk
 
-shim/lib%.so.c: generate-stublib.sh print-libstubs capsule-shim.h shim/lib%.so.c.excluded shim/lib%.so.c.shared
+# explicitly depend on the generators and .excluded and .shared metafiles
+# depend on the .dlopen file IFF it exists
+shim/lib%.so.c: generate-stublib.sh print-libstubs capsule-shim.h shim/lib%.so.c.*
 	$(GENSTUB)$(top_srcdir)/$< $$(basename $@ .c) $@.excluded $@.shared $@
 
 debug:

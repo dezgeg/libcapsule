@@ -28,8 +28,10 @@ proxied_dso=$1;    shift;
 proxy_excluded=$1; shift;
 proxy_extra=$1;    shift;
 proxy_src=$1;      shift;
-echo -n > $proxy_src.symbols;
-echo -n > $proxy_src.map;
+symbol_file=${proxy_src%.c}.symbols;
+map_file=${proxy_src%.c}.map;
+echo -n > $symbol_file;
+echo -n > $map_file;
 
 exec >& $proxy_src;
 
@@ -38,7 +40,7 @@ cat $top/capsule-shim.h;
 for pt in $proxied_dso $(cat $proxy_extra);
 do
     $top/print-libstubs $pt;
-done > $proxy_src.symbols;
+done > $symbol_file;
 
 while read symbol version dependency;
 do
@@ -52,7 +54,7 @@ do
             echo "UNVERSIONED_STUB( $symbol );";
             ;;
     esac;
-done < $proxy_src.symbols;
+done < $symbol_file;
 
 cat - <<EOF
 static Lmid_t symbol_ns;
@@ -97,7 +99,7 @@ static void __attribute__ ((constructor)) _capsule_init (void)
        {
 EOF
 
-while read sym x; do echo "         { \"$sym\" },"; done < $proxy_src.symbols;
+while read sym x; do echo "         { \"$sym\" },"; done < $symbol_file;
 
 cat - <<EOF
          { NULL }
@@ -133,7 +135,7 @@ cat - <<EOF
 }
 EOF
 
-exec >& $proxy_src.map;
+exec >& $map_file;
 
 for node in ${!NODE[@]};
 do
