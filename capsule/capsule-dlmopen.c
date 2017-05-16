@@ -1430,7 +1430,7 @@ capsule_shim_dlopen(Lmid_t ns,
 
     if( prefix && strcmp(prefix, "/") )
     {
-        init_ldlibs( &ldlibs, exclude, prefix, 1, &code, &errors );
+        init_ldlibs( &ldlibs, exclude, prefix, 0, &code, &errors );
 
         if( !load_ld_cache( &ldlibs, "/etc/ld.so.cache" ) )
         {
