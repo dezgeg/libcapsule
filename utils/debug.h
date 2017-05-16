@@ -14,13 +14,13 @@ enum
     DEBUG_ALL        = 0xffff,
 };
 
-#ifdef DEBUG
-#define debug(fmt, args...) \
-    fprintf( stderr, "%s:" fmt "\n", __PRETTY_FUNCTION__, ##args )
-#else
-#define debug(fmt, args...) \
+#define LDLIB_DEBUG(ldl, flags, fmt, args...)  \
+    if( ldl->debug && (ldl->debug & (flags)) ) \
+        fprintf( stderr, "%s:" fmt "\n", __PRETTY_FUNCTION__, ##args )
 
-#endif
+#define DEBUG(flags, fmt, args...)               \
+    if( debug_flags && (debug_flags & (flags)) ) \
+        fprintf( stderr, "%s:" fmt "\n", __PRETTY_FUNCTION__, ##args )
 
 extern unsigned long debug_flags;
 void  set_debug_flags (const char *control);

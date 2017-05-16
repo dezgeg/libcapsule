@@ -25,7 +25,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#define DEBUG
 #include "capsule/capsule.h"
 #include "utils.h"
 #include "process-pt-dynamic.h"
@@ -129,10 +128,6 @@ try_relocation (ElfW(Addr) *reloc_addr, const char *name, void *data)
     capsule_item_t *map;
     relocation_data_t *rdata = data;
 
-    //if( rdata->debug )
-    //    debug( "( %p, %p, %p:%s )",
-    //           rdata, reloc_addr, name, name ? name : "-none-" );
-
     if( !name || !*name || !reloc_addr )
         return 0;
 
@@ -141,13 +136,9 @@ try_relocation (ElfW(Addr) *reloc_addr, const char *name, void *data)
         if( strcmp( name, map->name ) )
             continue;
 
-        if( rdata->debug )
-            debug( "relocation for %s (%p->{ %p }, %p, %p)",
-                   name,
-                   reloc_addr,
-                   NULL,
-                   (void *)map->shim,
-                   (void *)map->real );
+        DEBUG( DEBUG_RELOCS,
+               "relocation for %s (%p->{ %p }, %p, %p)",
+               name, reloc_addr, NULL, (void *)map->shim, (void *)map->real );
 
         // couldn't look up the address of the shim function. buh?
         if( !map->shim )
@@ -157,8 +148,8 @@ try_relocation (ElfW(Addr) *reloc_addr, const char *name, void *data)
         if( !map->real )
         {
             rdata->count.failure++;
-            if( rdata->debug )
-                debug( "--failed");
+            DEBUG( DEBUG_RELOCS, "--failed" );
+
             return 1;
         }
 
@@ -206,14 +197,14 @@ try_relocation (ElfW(Addr) *reloc_addr, const char *name, void *data)
         if( (*reloc_addr == map->shim) &&
             !find_mmap_info(rdata->mmap_info, reloc_addr) )
         {
-            debug( " ERROR: cannot update relocation record for %s", name );
+            DEBUG( DEBUG_RELOCS|DEBUG_MPROTECT,
+                   " ERROR: cannot update relocation record for %s", name );
             return 1; // FIXME - already shimmed, can't seem to override?
         }
 
         *reloc_addr = map->real;
         rdata->count.success++;
-        if( rdata->debug )
-            debug( "--relocated");
+        DEBUG( DEBUG_RELOCS, "--relocated" );
         return 0;
     }
 
@@ -221,7 +212,8 @@ try_relocation (ElfW(Addr) *reloc_addr, const char *name, void *data)
     return 0;
 }
 
-#define DUMP_SLOTINFO(n,x) if(dbg) debug("%s has slot type %s (%d)", n, #x, x)
+#define DUMP_SLOTINFO(n,x) \
+    DEBUG(DEBUG_ELF, "%s has slot type %s (%d)", n, #x, x)
 
 int
 process_dt_rela (const void *start,
@@ -232,8 +224,6 @@ process_dt_rela (const void *start,
                  void *data)
 {
     ElfW(Rela) *entry;
-
-    int dbg = ((relocation_data_t *)data)->debug;
 
     for( entry = (ElfW(Rela) *)start;
          entry < (ElfW(Rela) *)(start + relasz);
@@ -255,17 +245,16 @@ process_dt_rela (const void *start,
             chr = ELF64_R_TYPE(entry->r_info);
             break;
           default:
-            debug( "__ELF_NATIVE_CLASS is neither 32 nor 64" );
-            exit( 1 );
+            fprintf( stderr, "__ELF_NATIVE_CLASS is neither 32 nor 64" );
+            exit( 22 );
         }
 
-        if( dbg )
-            debug( "RELA entry at %p", entry );
+        DEBUG( DEBUG_ELF, "RELA entry at %p", entry );
 
         symbol = find_symbol( sym, symtab, strtab, &name );
 
-        if( dbg )
-            debug( "symbol %p; name: %p:%s", symbol, name, name ? name : "-" );
+        DEBUG( DEBUG_ELF,
+               "symbol %p; name: %p:%s", symbol, name, name ? name : "-" );
 
         if( !symbol || !name || !*name )
             continue;
@@ -277,9 +266,9 @@ process_dt_rela (const void *start,
        // case R_386_JMP_SLOT:  // these are secretly the same:
           case R_X86_64_JUMP_SLOT:
             slot = addr( base, entry->r_offset, entry->r_addend );
-            if( dbg )
-                debug( "R_X86_64_JUMP_SLOT: %p ← { offset: %lu; addend: %ld }",
-                       slot, entry->r_offset, entry->r_addend );
+            DEBUG( DEBUG_ELF,
+                   "R_X86_64_JUMP_SLOT: %p ← { offset: %lu; addend: %ld }",
+                   slot, entry->r_offset, entry->r_addend );
             try_relocation( slot, name, data );
             break;
           case R_X86_64_NONE:
@@ -435,8 +424,8 @@ process_dt_rel (const void *start,
             chr = ELF64_R_TYPE(entry->r_info);
             break;
           default:
-            debug( "__ELF_NATIVE_CLASS is neither 32 nor 64" );
-            exit( 1 );
+            fprintf( stderr, "__ELF_NATIVE_CLASS is neither 32 nor 64" );
+            exit( 22 );
         }
 
         symbol = find_symbol( sym, symtab, strtab, &name );
@@ -477,17 +466,14 @@ process_pt_dynamic (void *start,
     void *relstart;
     const void *symtab = NULL;
     const char *strtab = find_strtab( base, start, size, &strsiz );
-    relocation_data_t *rdata = data;
-    int dbg = rdata->debug;
 
-    if( dbg )
-    {
-        debug( "start: %p; size: %lu; base: %p; handlers: %p %p; …",
-               start, size, (void *)base, process_rela, process_rel );
-        debug( "dyn entry: %p", start + base );
-    }
-    if( dbg )
-        debug( "strtab is at %p: %s%s", strtab, strtab, strtab ? "…" : "");
+    DEBUG( DEBUG_ELF,
+           "start: %p; size: %lu; base: %p; handlers: %p %p; …",
+           start, size, (void *)base, process_rela, process_rel );
+    DEBUG( DEBUG_ELF, "dyn entry: %p", start + base );
+
+    DEBUG( DEBUG_ELF,
+           "strtab is at %p: %s%s", strtab, strtab, strtab ? "…" : "");
 
     for( entry = start + base;
          (entry->d_tag != DT_NULL) && ((void *)entry < (start + base + size));
@@ -496,21 +482,18 @@ process_pt_dynamic (void *start,
         {
           case DT_PLTRELSZ:
             jmprelsz = entry->d_un.d_val;
-            if( dbg )
-                debug( "jmprelsz is %d", jmprelsz );
+            DEBUG( DEBUG_ELF, "jmprelsz is %d", jmprelsz );
             break;
 
           case DT_SYMTAB:
             symtab = addr( base, entry->d_un.d_ptr, 0 );
-            if( dbg )
-                debug( "symtab is %p", symtab );
+            DEBUG( DEBUG_ELF, "symtab is %p", symtab );
             break;
 
           case DT_RELA:
             if( process_rela != NULL )
             {
-                if( dbg )
-                    debug( "processing DT_RELA section" );
+                DEBUG( DEBUG_ELF, "processing DT_RELA section" );
                 if( relasz == -1 )
                     relasz = find_value( base, start, size, DT_RELASZ );
                 relstart = addr( base, entry->d_un.d_ptr, 0 );
@@ -518,23 +501,21 @@ process_pt_dynamic (void *start,
             }
             else
             {
-                if( dbg )
-                    debug( "skipping DT_RELA section: no handler" );
+                DEBUG( DEBUG_ELF|DEBUG_RELOCS,
+                       "skipping DT_RELA section: no handler" );
             }
             break;
 
           case DT_RELASZ:
             relasz = entry->d_un.d_val;
-            if( dbg )
-                debug( "relasz is %d", relasz );
+            DEBUG( DEBUG_ELF, "relasz is %d", relasz );
             break;
 
           case DT_PLTREL:
             jmpreltype = entry->d_un.d_val;
-            if( dbg )
-                debug( "jmpreltype is %d : %s", jmpreltype,
-                       jmpreltype == DT_REL  ? "DT_REL"  :
-                       jmpreltype == DT_RELA ? "DT_RELA" : "???" );
+            DEBUG( DEBUG_ELF, "jmpreltype is %d : %s", jmpreltype,
+                   jmpreltype == DT_REL  ? "DT_REL"  :
+                   jmpreltype == DT_RELA ? "DT_RELA" : "???" );
             break;
 
           case DT_JMPREL:
@@ -548,41 +529,40 @@ process_pt_dynamic (void *start,
               case DT_REL:
                 if( process_rel != NULL )
                 {
-                    if( dbg )
-                        debug( "processing DT_JMPREL/DT_REL section" );
+                    DEBUG( DEBUG_ELF|DEBUG_RELOCS,
+                           "processing DT_JMPREL/DT_REL section" );
                     relstart = addr( base, entry->d_un.d_ptr, 0 );
-                    if( dbg )
-                        debug( "  -> REL antry #0 at %p", relstart );
+                    DEBUG( DEBUG_ELF, "  -> REL antry #0 at %p", relstart );
                     ret = process_rel( relstart, jmprelsz, strtab,
                                        symtab, base, data );
                 }
                 else
                 {
-                    if( dbg )
-                        debug( "skipping DT_JMPREL/DT_REL section: no handler" );
+                    DEBUG( DEBUG_ELF|DEBUG_RELOCS,
+                           "skipping DT_JMPREL/DT_REL section: no handler" );
                 }
                 break;
 
               case DT_RELA:
                 if( process_rela != NULL )
                 {
-                    if( dbg )
-                        debug( "processing DT_JMPREL/DT_RELA section" );
+                    DEBUG( DEBUG_ELF,
+                           "processing DT_JMPREL/DT_RELA section" );
                     relstart = addr( base, entry->d_un.d_ptr, 0 );
                     ret = process_rela( relstart, jmprelsz, strtab,
                                         symtab, base, data );
                 }
                 else
                 {
-                    if( dbg )
-                        debug( "skipping DT_JMPREL/DT_RELA section: no handler" );
+                    DEBUG( DEBUG_ELF,
+                           "skipping DT_JMPREL/DT_RELA section: no handler" );
                 }
                 break;
 
               default:
-                if( dbg )
-                    debug( "Unknown DT_PLTREL value: %d (expected %d or %d)",
-                           jmpreltype, DT_REL, DT_RELA );
+                DEBUG( DEBUG_RELOCS|DEBUG_ELF,
+                       "Unknown DT_PLTREL value: %d (expected %d or %d)",
+                       jmpreltype, DT_REL, DT_RELA );
                 ret = 1;
                 break;
             }

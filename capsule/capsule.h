@@ -30,7 +30,7 @@ void capsule_init (void);
 
 int capsule_relocate (const char *target,
                       void *source,
-                      int debug,
+                      unsigned long debug,
                       capsule_item_t *relocations,
                       char **error);
 
@@ -38,7 +38,7 @@ void *capsule_dlmopen (const char *dso,
                        const char *prefix,
                        Lmid_t *namespace,
                        capsule_item_t *wrappers,
-                       int debug,
+                       unsigned long debug,
                        const char **exclude,
                        int *errcode,
                        char **error);

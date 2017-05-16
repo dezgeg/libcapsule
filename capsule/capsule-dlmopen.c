@@ -33,22 +33,11 @@
 #include <gelf.h>
 #include <dlfcn.h>
 
-#define DEBUG
-
 #include "capsule.h"
 #include "utils/utils.h"
 #include "utils/dump.h"
 #include "utils/mmap-info.h"
 #include "utils/process-pt-dynamic.h"
-
-#ifdef DEBUG
-#define ldlib_debug(l, fmt, args...) \
-    if( (l)->debug )                 \
-        fprintf( stderr, "%s:" fmt "\n", __PRETTY_FUNCTION__, ##args )
-#else
-#define ldlib_debug(fmt, args...) \
-
-#endif
 
 // ==========================================================================
 // this is stolen from the ld.so config (dl-cache.h) since we need
@@ -186,7 +175,7 @@ typedef struct
     char *not_found[DSO_LIMIT];
     char *error;
     int last_not_found;
-    int debug;
+    unsigned long debug;
 } ldlibs_t;
 
 typedef int (*ldcache_entry_cb) (ldlibs_t *ldlibs,
@@ -277,15 +266,14 @@ void resolve_symlink_prefixed (ldlibs_t *ldlibs, int i)
         (ldlibs->prefix.path[0] == '/' && ldlibs->prefix.path[1] == '\0') )
         return;
 
-    if( ldlibs->debug )
-        debug( "resolving (un)prefixed link in %s", ldlibs->needed[i].path );
+    LDLIB_DEBUG( ldlibs, DEBUG_PATH,
+                 "resolving (un)prefixed link in %s", ldlibs->needed[i].path );
 
     safe_strncpy( resolved, ldlibs->needed[i].path, PATH_MAX );
 
     while( resolve_link(ldlibs->prefix.path, resolved, link_dir) )
     {
-        if( ldlibs->debug )
-            debug( "  resolved to: %s", resolved );
+        LDLIB_DEBUG( ldlibs, DEBUG_PATH, "  resolved to: %s", resolved );
         count++;
     }
 
@@ -302,15 +290,14 @@ void resolve_symlink_prefixed (ldlibs_t *ldlibs, int i)
 static int
 ldlib_open (ldlibs_t *ldlibs, const char *name, int i)
 {
-    const int dflag = ldlibs->debug;
 
-    ldlib_debug( ldlibs, "ldlib_open: target -: %s", ldlibs->needed[i].path );
+    LDLIB_DEBUG( ldlibs, DEBUG_SEARCH,
+                 "ldlib_open: target -: %s", ldlibs->needed[i].path );
 
-    ldlibs->debug = 0;
     resolve_symlink_prefixed( ldlibs, i );
-    ldlibs->debug = dflag;
 
-    ldlib_debug( ldlibs, "ldlib_open: target +: %s", ldlibs->needed[i].path );
+    LDLIB_DEBUG( ldlibs, DEBUG_SEARCH,
+                 "ldlib_open: target +: %s", ldlibs->needed[i].path );
 
     ldlibs->needed[i].fd = open( ldlibs->needed[i].path, O_RDONLY );
 
@@ -327,7 +314,8 @@ ldlib_open (ldlibs_t *ldlibs, const char *name, int i)
         else
             acceptable = check_elf_constraints( ldlibs, i );
 
-        ldlib_debug( ldlibs, "[%03d] %s on fd #%d; elf: %p; acceptable: %d",
+        LDLIB_DEBUG( ldlibs, DEBUG_SEARCH,
+                     "[%03d] %s on fd #%d; elf: %p; acceptable: %d",
                      i,
                      ldlibs->needed[i].path,
                      ldlibs->needed[i].fd  ,
@@ -374,7 +362,8 @@ iterate_ldcache (ldlibs_t *ldlibs, ldcache_entry_cb cb, void *data)
         break;
 
       default:
-        debug("Invalid ld cache type, cannot parse");
+        fprintf( stderr, "Invalid ld cache type %d, cannot parse",
+                 ldlibs->ctype );
         exit(22);
     }
 
@@ -457,7 +446,9 @@ search_ldpath (const char *name, const char *ldpath, ldlibs_t *ldlibs, int i)
     prefix[plen] = '\0';
 
     sanitise_ldlibs(ldlibs);
-    ldlib_debug( ldlibs, "searching for %s in %s (prefix: %s)",
+
+    LDLIB_DEBUG( ldlibs, DEBUG_SEARCH,
+                 "searching for %s in %s (prefix: %s)",
                  name, ldpath, plen ? prefix : "-none-" );
 
     while( sp && *sp )
@@ -474,7 +465,7 @@ search_ldpath (const char *name, const char *ldpath, ldlibs_t *ldlibs, int i)
         safe_strncpy( prefix + plen, sp, len + 1);
         prefix[plen + len + 1] = '\0';
 
-        ldlib_debug( ldlibs, "  searchpath element: %s", prefix );
+        LDLIB_DEBUG( ldlibs, DEBUG_SEARCH, "  searchpath element: %s", prefix );
         // append the target name, without overflowing, then resolve
         if( (plen + len + strlen( name ) + 1 < PATH_MAX) )
         {
@@ -482,7 +473,7 @@ search_ldpath (const char *name, const char *ldpath, ldlibs_t *ldlibs, int i)
             safe_strncpy( prefix + plen + len + 1, name,
                           PATH_MAX - plen - len - 1 );
 
-            ldlib_debug( ldlibs, "examining %s", prefix );
+            LDLIB_DEBUG( ldlibs, DEBUG_SEARCH, "examining %s", prefix );
             if( realpath( prefix, ldlibs->needed[i].path ) &&
                 ldlib_open( ldlibs, name, i ) )
                 return 1;
@@ -544,7 +535,7 @@ dso_find (const char *name, ldlibs_t *ldlibs, int i)
             target = name;
         }
 
-        ldlib_debug( ldlibs, "resolving path %s", target );
+        LDLIB_DEBUG( ldlibs, DEBUG_PATH, "resolving path %s", target );
         if( realpath( target, ldlibs->needed[i].path ) )
             return ldlib_open( ldlibs, name, i );
     }
@@ -605,7 +596,8 @@ _dso_iterate_sections (ldlibs_t *ldlibs, int idx)
     ldlibs->needed[idx].dso =
       elf_begin( ldlibs->needed[idx].fd, ELF_C_READ_MMAP, NULL );
 
-    ldlib_debug( ldlibs, "%03d: fd:%d dso:%p ← %s",
+    LDLIB_DEBUG( ldlibs, DEBUG_CAPSULE,
+                 "%03d: fd:%d dso:%p ← %s",
                  idx,
                  ldlibs->needed[idx].fd,
                  ldlibs->needed[idx].dso,
@@ -650,7 +642,8 @@ _dso_iterate_sections (ldlibs_t *ldlibs, int idx)
                 {
                     if( strcmp( *x, next_dso ) == 0 )
                     {
-                        ldlib_debug( ldlibs, "skipping %s / %s", next_dso, *x );
+                        LDLIB_DEBUG( ldlibs, DEBUG_CAPSULE|DEBUG_SEARCH,
+                                     "skipping %s / %s", next_dso, *x );
                         skip = 1;
                         break;
                     }
@@ -978,7 +971,9 @@ load_ldlibs (ldlibs_t *ldlibs, Lmid_t *namespace, int flag, int *errcode, char *
                 const char *path = ldlibs->needed[j].path;
                 go++;
 
-                ldlib_debug( ldlibs, "DLMOPEN %p %s %s", (void *)lm, _rtldstr(flag), path );
+                LDLIB_DEBUG( ldlibs, DEBUG_CAPSULE,
+                             "DLMOPEN %p %s %s",
+                             (void *)lm, _rtldstr(flag), path );
 
                 // The actual dlmopen. If this was the first one, it may
                 // have created a new link map id, wich we record later on:
@@ -1005,7 +1000,8 @@ load_ldlibs (ldlibs_t *ldlibs, Lmid_t *namespace, int flag, int *errcode, char *
                 {
                     dlinfo( ret, RTLD_DI_LMID, namespace );
                     lm = *namespace;
-                    ldlib_debug( ldlibs, "new Lmid_t handle %p\n", (void *)lm );
+                    LDLIB_DEBUG( ldlibs, DEBUG_CAPSULE,
+                                 "new Lmid_t handle %p\n", (void *)lm );
                 }
 
                 // go through the map of DSOs and reduce the dependency
@@ -1026,7 +1022,7 @@ static void
 init_ldlibs (ldlibs_t *ldlibs,
              const char **exclude,
              const char *prefix,
-             int dbg,
+             unsigned long dbg,
              int *errcode,
              char **error)
 {
@@ -1180,8 +1176,7 @@ static void
 wrap (const char *name,
       ElfW(Addr) base,
       ElfW(Dyn) *dyn,
-      capsule_item_t *wrappers,
-      int dbg)
+      capsule_item_t *wrappers)
 {
     int mmap_errno = 0;
     char *mmap_error = NULL;
@@ -1194,16 +1189,18 @@ wrap (const char *name,
     relocation_data_t rdata = { 0 };
 
     rdata.target    = name;
-    rdata.debug     = dbg;
+    rdata.debug     = debug_flags;
     rdata.error     = NULL;
     rdata.relocs    = wrappers;
     rdata.mmap_info = load_mmap_info( &mmap_errno, &mmap_error );
 
-    if( dbg && (mmap_errno || mmap_error) )
+    if( mmap_errno || mmap_error )
     {
-        debug("mmap/mprotect flags information load error (errno: %d): %s",
-              mmap_errno, mmap_error );
-        debug("relocation will be unable to handle relro linked libraries");
+        DEBUG( DEBUG_MPROTECT,
+               "mmap/mprotect flags information load error (errno: %d): %s",
+               mmap_errno, mmap_error );
+        DEBUG( DEBUG_MPROTECT,
+               "relocation will be unable to handle relro linked libraries" );
     }
 
     for( int i = 0; rdata.mmap_info[i].start != MAP_FAILED; i++ )
@@ -1247,7 +1244,6 @@ excluded_from_wrap (const char *name, char **exclude)
 static int install_wrappers ( void *dl_handle,
                               capsule_item_t *wrappers,
                               const char **exclude,
-                              int dbg,
                               int *errcode,
                               char **error)
 {
@@ -1262,14 +1258,12 @@ static int install_wrappers ( void *dl_handle,
         if( errcode )
             *errcode = EINVAL;
 
-        if( dbg )
-            debug( "mangling dlopen symbols: %s", *error );
+        DEBUG( DEBUG_WRAPPERS, "mangling dlopen symbols: %s", *error );
 
         return -1;
     }
 
-    if ( dbg )
-        debug( "link_map: %p <- %p -> %p",
+    DEBUG( DEBUG_WRAPPERS, "link_map: %p <- %p -> %p",
                map ? map->l_next : NULL ,
                map ? map         : NULL ,
                map ? map->l_prev : NULL );
@@ -1279,12 +1273,12 @@ static int install_wrappers ( void *dl_handle,
     if (map->l_prev)
         for( struct link_map *m = map; m; m = m->l_prev )
             if( !excluded_from_wrap(m->l_name, (char **)exclude) )
-                wrap( m->l_name, m->l_addr, m->l_ld, wrappers, dbg );
+                wrap( m->l_name, m->l_addr, m->l_ld, wrappers );
 
     if (map->l_next)
         for( struct link_map *m = map; m; m = m->l_next )
             if( !excluded_from_wrap(m->l_name, (char **)exclude) )
-                wrap( m->l_name, m->l_addr, m->l_ld, wrappers, dbg );
+                wrap( m->l_name, m->l_addr, m->l_ld, wrappers );
 
     return replacements;
 }
@@ -1294,13 +1288,16 @@ capsule_dlmopen (const char *dso,
                  const char *prefix,
                  Lmid_t *namespace,
                  capsule_item_t *wrappers,
-                 int dbg,
+                 unsigned long dbg,
                  const char **exclude,
                  int *errcode,
                  char **error)
 {
     void *ret = NULL;
     ldlibs_t ldlibs = { 0 };
+
+    if( dbg == 0 )
+        dbg = debug_flags;
 
     if( elf_version(EV_CURRENT) == EV_NONE )
     {
@@ -1323,7 +1320,7 @@ capsule_dlmopen (const char *dso,
     // currently installed (x86_64, i386, x32) in no particular order
     if( load_ld_cache( &ldlibs, "/etc/ld.so.cache" ) )
     {
-        if( 0 && dbg )
+        if( debug_flags & DEBUG_LDCACHE )
             dump_ld_cache( &ldlibs );
     }
     else
@@ -1406,7 +1403,7 @@ capsule_dlmopen (const char *dso,
         ldlibs.prefix.len > 0  &&    // have a prefix
         ldlibs.prefix.path     &&
         strcmp("/", ldlibs.prefix.path) ) // prefix is not '/'
-        install_wrappers( ret, wrappers, exclude, 0, errcode, error );
+        install_wrappers( ret, wrappers, exclude, errcode, error );
 
 cleanup:
     cleanup_ldlibs( &ldlibs );
@@ -1425,18 +1422,20 @@ capsule_shim_dlopen(Lmid_t ns,
     char *errors = NULL;
     ldlibs_t ldlibs = { 0 };
 
-    debug( ">>>> capsule dlopen(%s, %x) wrapper: LMID: %ld; prefix: %s;",
+    DEBUG( DEBUG_WRAPPERS,
+           "dlopen(%s, %x) wrapper: LMID: %ld; prefix: %s;",
            file, flag, ns, prefix );
 
     if( prefix && strcmp(prefix, "/") )
     {
-        init_ldlibs( &ldlibs, exclude, prefix, 0, &code, &errors );
+        init_ldlibs( &ldlibs, exclude, prefix, debug_flags, &code, &errors );
 
         if( !load_ld_cache( &ldlibs, "/etc/ld.so.cache" ) )
         {
             int rv = (errno == 0) ? EINVAL : errno;
 
-            debug( "Loading ld.so.cache from %s (error: %d)", prefix, rv );
+            DEBUG( DEBUG_LDCACHE|DEBUG_WRAPPERS,
+                   "Loading ld.so.cache from %s (error: %d)", prefix, rv );
             goto cleanup;
         }
 
@@ -1444,7 +1443,9 @@ capsule_shim_dlopen(Lmid_t ns,
         {
             int rv = (errno == 0) ? EINVAL : errno;
 
-            debug( "<<<< Not found: %s under %s (error: %d)", file, prefix, rv );
+            DEBUG( DEBUG_SEARCH|DEBUG_WRAPPERS,
+                           "Not found: %s under %s (error: %d)",
+                           file, prefix, rv );
             goto cleanup;
         }
 
@@ -1452,7 +1453,7 @@ capsule_shim_dlopen(Lmid_t ns,
 
         if( ldlibs.error )
         {
-            debug( "<<<< capsule dlopen error: %s", ldlibs.error );
+            DEBUG( DEBUG_WRAPPERS, "capsule dlopen error: %s", ldlibs.error );
             goto cleanup;
         }
 
@@ -1460,7 +1461,8 @@ capsule_shim_dlopen(Lmid_t ns,
 
         if( !res )
         {
-            debug( "<<<< capsule dlopen error %d: %s", code, errors );
+            DEBUG( DEBUG_WRAPPERS,
+                   "capsule dlopen error %d: %s", code, errors );
             goto cleanup;
         }
     }
@@ -1469,7 +1471,8 @@ capsule_shim_dlopen(Lmid_t ns,
         res = dlmopen( ns, file, flag );
 
         if( !res )
-            debug( "<<<< capsule dlopen error %s: %s", file, dlerror() );
+            DEBUG( DEBUG_WRAPPERS,
+                   "capsule dlopen error %s: %s", file, dlerror() );
     }
 
     return res;

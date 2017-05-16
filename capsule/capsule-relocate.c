@@ -27,8 +27,6 @@
 
 #include <capsule/capsule.h>
 
-#define DEBUG
-
 #include "utils/dump.h"
 #include "utils/utils.h"
 #include "utils/process-pt-dynamic.h"
@@ -73,15 +71,15 @@ relocate_cb (struct dl_phdr_info *info, size_t size, void *data)
 {
     relocation_data_t *rdata = data;
 
-    if( rdata->debug )
-        debug( "processing %s", *info->dlpi_name ? info->dlpi_name : "-elf-" );
+    DEBUG( DEBUG_RELOCS, "processing %s",
+           *info->dlpi_name ? info->dlpi_name : "-elf-" );
 
     return process_phdr( info, size, rdata );
 }
 
 int capsule_relocate (const char *target,
                       void *source,
-                      int dbg,
+                      unsigned long dbg,
                       capsule_item_t *relocations,
                       char **error)
 {
@@ -92,16 +90,18 @@ int capsule_relocate (const char *target,
     int rval = 0;
 
     rdata.target    = target;
-    rdata.debug     = dbg;
+    rdata.debug     = dbg ? dbg : debug_flags;
     rdata.error     = NULL;
     rdata.relocs    = relocations;
     rdata.mmap_info = load_mmap_info( &mmap_errno, &mmap_error );
 
-    if( dbg && (mmap_errno || mmap_error) )
+    if( mmap_errno || mmap_error )
     {
-        debug("mmap/mprotect flags information load error (errno: %d): %s",
-              mmap_errno, mmap_error );
-        debug("relocation will be unable to handle relro linked libraries");
+        DEBUG( DEBUG_RELOCS|DEBUG_MPROTECT,
+               "mmap/mprotect flags information load error (errno: %d): %s\n",
+               mmap_errno, mmap_error );
+        DEBUG( DEBUG_RELOCS|DEBUG_MPROTECT,
+               "relocation will be unable to handle relro linked libraries" );
     }
 
     // no source dl handle means we must have a pre-populated
