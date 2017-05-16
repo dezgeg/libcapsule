@@ -23,7 +23,6 @@
 #include "debug.h"
 
 unsigned long debug_flags;
-unsigned long debug_context;
 
 char *safe_strncpy (char *dest, const char *src, size_t n)
 {

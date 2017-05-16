@@ -22,6 +22,5 @@ enum
 
 #endif
 
-extern unsigned long debug_context;
 extern unsigned long debug_flags;
 void  set_debug_flags (const char *control);
