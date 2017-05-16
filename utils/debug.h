@@ -10,6 +10,7 @@ enum
     DEBUG_MPROTECT   = 0x1 << 4,
     DEBUG_WRAPPERS   = 0x1 << 5,
     DEBUG_RELOCS     = 0x1 << 6,
+    DEBUG_ELF        = 0x1 << 7,
     DEBUG_ALL        = 0xffff,
 };
 

@@ -96,6 +96,7 @@ void set_debug_flags (const char *control)
     if( strstr( control, "mprotect" ) ) debug_flags |= DEBUG_MPROTECT;
     if( strstr( control, "wrappers" ) ) debug_flags |= DEBUG_WRAPPERS;
     if( strstr( control, "reloc"    ) ) debug_flags |= DEBUG_RELOCS;
+    if( strstr( control, "elf"      ) ) debug_flags |= DEBUG_ELF;
     if( strstr( control, "all"      ) ) debug_flags |= DEBUG_ALL;
 
     fprintf(stderr, "capsule debug flags: \n"
@@ -105,12 +106,14 @@ void set_debug_flags (const char *control)
             "  capsule : %c # setting up the proxy capsule"                "\n"
             "  mprotect: %c # handling mprotect (for RELRO)"               "\n"
             "  wrappers: %c # function wrappers installed in the capsule"  "\n"
-            "  reloc   : %c # patching capsule symbols into external DSOs" "\n",
+            "  reloc   : %c # patching capsule symbols into external DSOs" "\n"
+            "  elf     : %c # detailed ELF introspection logging"          "\n",
             (debug_flags & DEBUG_PATH    ) ? 'Y' : 'n' ,
             (debug_flags & DEBUG_SEARCH  ) ? 'Y' : 'n' ,
             (debug_flags & DEBUG_LDCACHE ) ? 'Y' : 'n' ,
             (debug_flags & DEBUG_CAPSULE ) ? 'Y' : 'n' ,
             (debug_flags & DEBUG_MPROTECT) ? 'Y' : 'n' ,
             (debug_flags & DEBUG_WRAPPERS) ? 'Y' : 'n' ,
-            (debug_flags & DEBUG_RELOCS  ) ? 'Y' : 'n' );
+            (debug_flags & DEBUG_RELOCS  ) ? 'Y' : 'n' ,
+            (debug_flags & DEBUG_ELF     ) ? 'Y' : 'n' );
 }
