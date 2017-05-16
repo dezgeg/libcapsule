@@ -1,0 +1,39 @@
+// library-specific implementation of the dlmopen wrapper
+// the symbol_ns, prefix and exclude variables are static
+// globals that are declared and set by the standard stub
+// library generated code.
+#include <string.h>
+
+static void *_dlopen (const char *filename, int flag)
+{
+    void *handle;
+    static int libgl_self_dl_hack = 0;
+
+    if( flag & RTLD_GLOBAL )
+    {
+        // this is probably the weird libgl self-dlopen-rtld-global hack:
+        // flag it as we cannot support this in current glibc and this
+        // might cause a failure in a subsequent dlmopen() calls:
+        if( strstr( filename, "libGL.so" ) )
+            libgl_self_dl_hack = 1;
+
+        fprintf( stderr, "Warning: libcapsule dlopen wrapper cannot pass "
+                         "RTLD_GLOBAL to underlying dlmopen(%s...) call\\n",
+                 filename );
+        flag = (flag & ~RTLD_GLOBAL) & 0xfffff;
+    }
+
+    handle =
+      capsule_shim_dlopen( symbol_ns, prefix, exclude, filename, flag );
+
+    if( !handle && libgl_self_dl_hack )
+    {
+        fprintf( stderr, "dlmopen(\"%s\", %d) failed: %s",
+                 filename, flag, dlerror() );
+        fprintf( stderr, "  This can occur if your dri driver is not linked "
+                 "with libglapi.so.\n  This bug is known to exist in Mesa "
+                 "versions before 17.x\n" );
+    }
+
+    return handle;
+}
