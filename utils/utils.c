@@ -20,6 +20,10 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdio.h>
+#include "debug.h"
+
+unsigned long debug_flags;
+unsigned long debug_context;
 
 char *safe_strncpy (char *dest, const char *src, size_t n)
 {
@@ -108,6 +112,5 @@ void set_debug_flags (const char *control)
             (debug_flags & DEBUG_CAPSULE ) ? 'Y' : 'n' ,
             (debug_flags & DEBUG_MPROTECT) ? 'Y' : 'n' ,
             (debug_flags & DEBUG_WRAPPERS) ? 'Y' : 'n' ,
-            (debug_flags & DEBUG_RELOCS  ) ? 'Y' : 'n' ,
-            (debug_flags & DEBUG_ALL     ) ? 'Y' : 'n' )
+            (debug_flags & DEBUG_RELOCS  ) ? 'Y' : 'n' );
 }

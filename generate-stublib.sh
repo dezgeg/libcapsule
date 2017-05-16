@@ -139,6 +139,8 @@ cat - <<EOF
      symbol_ns = LM_ID_NEWLM;
      prefix = "/host";
 
+     capsule_init();
+
      dso = capsule_dlmopen( "$proxied_dso", prefix, &symbol_ns, wrappers,
                             0, exclude, &capsule_errno, &capsule_error );
 

@@ -33,6 +33,7 @@ print_libstubs_LDFLAGS = -ldl
 
 libcapsule_la_SOURCES  = capsule/capsule-dlmopen.c  \
                          capsule/capsule-relocate.c \
+                         capsule/capsule-init.c     \
                          utils/utils.c utils/dump.c \
                          utils/process-pt-dynamic.c \
                          utils/mmap-info.c

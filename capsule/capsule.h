@@ -26,6 +26,8 @@ typedef struct
     ElfW(Addr) real;
 } capsule_item_t;
 
+void capsule_init (void);
+
 int capsule_relocate (const char *target,
                       void *source,
                       int debug,
