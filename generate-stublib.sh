@@ -30,6 +30,7 @@ proxy_extra=$1;    shift;
 proxy_src=$1;      shift;
 symbol_file=${proxy_src%.c}.symbols;
 map_file=${proxy_src%.c}.map;
+dlopen_file=${proxy_src}.dlopen;
 echo -n > $symbol_file;
 echo -n > $map_file;
 
@@ -76,7 +77,19 @@ do
 done < $proxy_excluded;
 cat - <<EOF
                                 NULL };
+EOF
 
+if [ -f ${dlopen_file} ];
+then
+    echo "// -------------------------------------------------------------";
+    echo "// start of ${proxy_src%.c} dlopen wrapper";
+    cat $dlopen_file;
+    echo "// end of ${proxy_src%.c} dlopen wrapper";
+    echo "// -------------------------------------------------------------";
+else
+    cat - <<EOF
+// -------------------------------------------------------------------------
+// start of default capsule dlopen wrapper function section
 static void *_dlopen (const char *filename, int flag)
 {
     if( flag & RTLD_GLOBAL )
@@ -88,6 +101,12 @@ static void *_dlopen (const char *filename, int flag)
     }
     return capsule_shim_dlopen( symbol_ns, prefix, exclude, filename, flag );
 }
+// end of default capsule dlopen wrapper function section
+// -------------------------------------------------------------------------
+EOF
+fi
+
+cat - <<EOF
 
 static void __attribute__ ((constructor)) _capsule_init (void)
 {
