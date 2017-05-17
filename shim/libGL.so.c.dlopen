@@ -28,10 +28,10 @@ static void *_dlopen (const char *filename, int flag)
 
     if( !handle && libgl_self_dl_hack )
     {
-        fprintf( stderr, "dlmopen(\"%s\", %d) failed: %s",
+        fprintf( stderr, "dlmopen(\"%s\", %d) failed: %s\n",
                  filename, flag, dlerror() );
         fprintf( stderr, "  This can occur if your dri driver is not linked "
-                 "with libglapi.so.\n  This bug is known to exist in Mesa "
+                 "with libglapi.so.\n  This bug is known to affect Mesa "
                  "versions before 17.x\n" );
     }
 
