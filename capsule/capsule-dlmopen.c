@@ -596,7 +596,7 @@ _dso_iterate_sections (ldlibs_t *ldlibs, int idx)
     ldlibs->needed[idx].dso =
       elf_begin( ldlibs->needed[idx].fd, ELF_C_READ_MMAP, NULL );
 
-    LDLIB_DEBUG( ldlibs, DEBUG_CAPSULE,
+    LDLIB_DEBUG( ldlibs, DEBUG_ELF,
                  "%03d: fd:%d dso:%p ← %s",
                  idx,
                  ldlibs->needed[idx].fd,
@@ -642,7 +642,7 @@ _dso_iterate_sections (ldlibs_t *ldlibs, int idx)
                 {
                     if( strcmp( *x, next_dso ) == 0 )
                     {
-                        LDLIB_DEBUG( ldlibs, DEBUG_CAPSULE|DEBUG_SEARCH,
+                        LDLIB_DEBUG( ldlibs, DEBUG_SEARCH|DEBUG_ELF,
                                      "skipping %s / %s", next_dso, *x );
                         skip = 1;
                         break;
