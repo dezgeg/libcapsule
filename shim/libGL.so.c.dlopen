@@ -18,7 +18,7 @@ static void *_dlopen (const char *filename, int flag)
             libgl_self_dl_hack = 1;
 
         fprintf( stderr, "Warning: libcapsule dlopen wrapper cannot pass "
-                         "RTLD_GLOBAL to underlying dlmopen(%s...) call\\n",
+                         "RTLD_GLOBAL to underlying dlmopen(%s...) call\n",
                  filename );
         flag = (flag & ~RTLD_GLOBAL) & 0xfffff;
     }
