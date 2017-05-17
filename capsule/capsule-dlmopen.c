@@ -205,24 +205,78 @@ static void clear_needed (dso_needed_t *needed)
     memset( needed->requestors, 0, sizeof(int) * DSO_LIMIT );
 }
 
+// set the ldlibs elf class and machine based on the link map entry
+// passed to us if possible: if we found values for these, return 1,
+// otherwise return 0:
+static int
+find_elf_constraints(ldlibs_t *ldlibs, struct link_map *m)
+{
+    int fd = -1;
+    Elf *dso = NULL;
+    GElf_Ehdr ehdr = { };
+
+    // absolute path or it's a "fake" link map entry which we can't use:
+    if( !m || !m->l_name || (m->l_name[0] != '/'))
+        return 0;
+
+    // if we can't open the DSO pointed to by the link map, bail:
+    fd = open( m->l_name, O_RDONLY );
+
+    if( fd < 0 )
+        return 0;
+
+    dso = elf_begin( fd, ELF_C_READ_MMAP, NULL );
+
+    if( dso && gelf_getehdr( dso, &ehdr ) )
+    {
+        ldlibs->elf_class   = gelf_getclass( dso );
+        ldlibs->elf_machine = ehdr.e_machine;
+        DEBUG( DEBUG_SEARCH|DEBUG_CAPSULE,
+               "elf class: %d; elf machine: %d; set from: %s",
+               ldlibs->elf_class, ldlibs->elf_machine, m->l_name );
+    }
+
+    if( dso != NULL )
+        elf_end( dso );
+
+    if( fd >= 0 )
+        close( fd );
+
+    return ( ldlibs->elf_class != ELFCLASSNONE );
+}
+
+
 // record the class & machine of the start of the link chain
 // so that we can only consider matching libraries later
 // this matters on multi-arch systems so we don't pick an
 // i386 or x32 DSO to statisfy a DT_NEEDED from an x86-64 one.
-// return true as long as the DSO is valid, false otherwise.
+// return true if we found a valid DSO, false (can't happen?) otherwise
 static int
 set_elf_constraints (ldlibs_t *ldlibs)
 {
-    GElf_Ehdr ehdr = {};
+    void *handle;
+    struct link_map *map;
+    struct link_map *m;
 
-    // bogus ELF DSO - no ehdr available?
-    if( !gelf_getehdr( ldlibs->needed[ 0 ].dso, &ehdr ) )
-        return 0;
+    if( (handle = dlopen( NULL, RTLD_LAZY|RTLD_NOLOAD )) &&
+        (dlinfo( handle, RTLD_DI_LINKMAP, &map ) == 0)   )
+    {
+        while( map->l_prev )
+            map = map->l_prev;
 
-    ldlibs->elf_class   = gelf_getclass( ldlibs->needed[ 0 ].dso );
-    ldlibs->elf_machine = ehdr.e_machine;
+        for( m = map; m; m = m->l_next )
+            if( find_elf_constraints(ldlibs, m) )
+                break;
+    }
+    else
+    {
+        // this would be frankly beyond bizarre:
+        fprintf(stderr, "dlopen/dlinfo on self faild: %s\n", dlerror() );
+    }
 
-    return 1;
+    return ( ( ldlibs->elf_class   != ELFCLASSNONE ) &&
+             ( ldlibs->elf_machine |= EM_NONE      ) );
+
 }
 
 // check that the currently opened dso at offset idx in the needed array
@@ -309,10 +363,7 @@ ldlib_open (ldlibs_t *ldlibs, const char *name, int i)
         ldlibs->needed[i].dso  =
           elf_begin( ldlibs->needed[i].fd, ELF_C_READ_MMAP, NULL );
 
-        if( i == 0 )
-            acceptable = set_elf_constraints( ldlibs );
-        else
-            acceptable = check_elf_constraints( ldlibs, i );
+        acceptable = check_elf_constraints( ldlibs, i );
 
         LDLIB_DEBUG( ldlibs, DEBUG_SEARCH,
                      "[%03d] %s on fd #%d; elf: %p; acceptable: %d",
@@ -1040,6 +1091,7 @@ init_ldlibs (ldlibs_t *ldlibs,
     for( int x = 0; x < DSO_LIMIT; x++ )
         ldlibs->needed[x].fd = -1;
 
+    set_elf_constraints(ldlibs);
     // ==================================================================
     // set up the path prefix at which we expect to find the encapsulated
     // library and its ld.so.cache and dependencies and so forth:
