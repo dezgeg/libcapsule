@@ -1,0 +1,111 @@
+This directory contains the sources of libcapsule.
+
+NB: Apparently there's a libcapsule to do with figuring out
+which audio and video APIs a game uses. This isn't that.
+We may have to change the project's name or something.
+────────────────────────────────────────────────────────────────────────────
+So what is it?
+
+libcapsule is a helper library that allows the construction of a `capsule'
+library - a sort of proxy library that contains one or more shared libraries
+but only exposes a requested set of symbols to the program or library that
+links to it [the capsule].
+
+libcapsule is designed to be used to create a library with the same name
+as one of the libraries needed by another ELF object, and placed in the
+filesystem such that it would be found by the linker instead of the "real"
+library. It then picks up the "real" libraries for which it proxies using
+a simplified version of the linker's library location algorithm and rewrites
+the symbol tables in all currently loaded ELF objects to point to the "real"
+function symbols.
+
+This source tree contains working examples for libGL.so and libz.so:
+
+  The libGL.so capsule has been tested with glxinfo & glxgears.
+  The libz.so capsule has been tested with bsdtar.
+────────────────────────────────────────────────────────────────────────────
+Why would I want this?
+
+In an ideal world, you would never want this.
+
+However this is not that world.
+
+Sometimes shared libraries have conflicting requirements. The original
+problem that set this project in motion was incompatible libstdc++
+requirements between games and the Mesa DRI drivers:
+
+Games built against one version of libstdc++ might not be able to tolerate
+the (often much newer) libstdc++ pulled in by a Mesa driver (such as
+i965_dri.so).
+
+libcapsule allows you to partition off the dependencies of certain libraries,
+so you get only the symbols from that library and do not see those of its
+dependencies.
+
+This does rely on (for example) an object allocated or managed by the
+encapsulated libstdc++ never being deleted or managed by the libstdc++
+that the application outside the capsule sees - fortunately the GL API
+does not expose us to that problem. See doc/Limitations.txt for more
+details.
+────────────────────────────────────────────────────────────────────────────
+How does it work?
+
+A simplified version of what goes on in the libGL capsule (details below)
+
+                          ┌────────────────┐
+               ┌─────────>│ gl─application │<─────────┬─────────┬───┐
+               │          └────────────────┘          │         │   │
+               │                                      │         │   │
+      ┌────────┴──────────┐   ┌───────────────┐       │         │   │
+      │ libGL.so(capsule) │<──┤ libcapsule.so │       │         │   │
+      └───────────────────┘   └───────────────┘       │         │   │
+                     ↑                                │         │   │
+   ┌─────────────────│───────┐                        │         │   │
+   │    from /host   │       │               from /   │         │   │
+   │  ┌──────────────┴────┐  │          ┌─────────────┴──┐      │   │
+   │  │ libxcb.so.1    *  │<──────┐     │ misc libraries │      │   │
+   │  ├───────────────────┤  │    │     └────────────────┘      │   │
+   │  │ libX11.so      *  │<──────┤                             │   │
+   │  ├───────────────────┤  │    │     ┌─────────────────┐     │   │
+   │  │ libGL.so.1     *  │<──────┤     │ libstdc++.so    ├─────┘   │
+   │  └───────────────────┘  │    │     └─────────────────┘         │
+   │           ↿⇂            │    │                                 │
+   │  ┌───────────────────┐  │    │     ┌─────────────────┐         │
+   │  │ Mesa DRI driver   │<──────┴─────│ libc.so.6       ├─────────┘
+   │  └───────────────────┘  │          └─────────────────┘
+   │           ↑             │
+   │  ┌────────┴──────────┐  │
+   │  │ libstdc++.so      │  │
+   │  └───────────────────┘  │
+   │                         │
+   └─────────────────────────┘
+
+In the setup shown above, we have a 'runtime' rooted at / which contains
+a set of shared libraries, the dynamic linker, and the libGL.so capsule
+(but no real libGL.so).
+
+Mounted into the runtime at /host is the "real" OS filesystem tree.
+The mechanism is unimportant here: It could be bwrap (bubblewrap)
+or the real / bind-mounted into a chroot, or some other approach.
+
+The libGL capsule is configured (at build time) to expose only the symbols
+from libxcb, libX11 and libGL to gl-application (and the other shared
+libraries pulled in by gl-application if they use any of those symbols).
+
+Any symbols from copies of libxcb, libX11 etc which are pulled in from
+the runtime tree at / will be masked by libcapsule with the symbols
+from the /host copies of those libraries.
+
+For practical reasons, libc.so.6 must be shared by both the capsule
+libraries and the runtime ones.
+
+Any symbols _not_ flagged explicitly for export from the capsule
+will not be visible to gl-application or the other libraries from
+the runtime: This permits a potentially incompatible libstdc++.so
+from the runtime to coexist with the one pulled in from the /host
+tree by the Mesa DRI driver.
+
+────────────────────────────────────────────────────────────────────────────
+
+For more details on the mechanics of the capsule and/or how to modify
+an existing capsule or add your own see the doc/ directory.
