@@ -21,7 +21,11 @@ ACLOCAL_AMFLAGS        = -I m4
 AM_CFLAGS 			   = --std=c99 -D_GNU_SOURCE -Wall
 
 bin_PROGRAMS 		   = elf-dump print-libstubs
-lib_LTLIBRARIES 	   = libcapsule.la libz.la libGL.la
+lib_LTLIBRARIES 	   = libcapsule.la
+
+lib_LTLIBRARIES       += libz.la
+lib_LTLIBRARIES       += libGL.la
+
 include_HEADERS        = capsule/capsule.h
 nodist_include_HEADERS = utils/utils.h utils/dump.h utils/process-pt-dynamic.h
 
@@ -39,15 +43,20 @@ libcapsule_la_SOURCES  = capsule/capsule-dlmopen.c  \
                          utils/mmap-info.c
 
 libcapsule_la_LDFLAGS  = -lelf
+############################################################################
+# shim libraries:
 
+# libz to match version 1.2.8 and have the same symbol versioning:
 libz_la_SOURCES        = shim/libz.so.c
-libz_la_LDFLAGS        = -lcapsule -version-info 1:1:0 \
+libz_la_LDFLAGS        = -lcapsule -version-number 1:2:8 \
                          -Wl,--version-script=shim/libz.so.map
 
+# libGL is always 1.2.0, and doesn't use symbol versioning:
 libGL_la_SOURCES       = shim/libGL.so.c
-libGL_la_LDFLAGS       = -lcapsule -version-info 1:1:0
+libGL_la_LDFLAGS       = -lcapsule -version-number 1:2
 
-shims      = z GL
+############################################################################
+shims      = $(patsubst shim/lib%.so.c,%,$(filter shim/lib%.so.c,$(SOURCES)))
 shim_srcs  = $(foreach l,$(shims),shim/lib$l.so.c)
 shim_base  = $(basename $(shim_srcs))
 shim_files = $(foreach y,map symbols,$(foreach x,$(shim_base),$x.$y))
