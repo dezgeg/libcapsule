@@ -137,7 +137,9 @@ cat - <<EOF
       };
 
     symbol_ns = LM_ID_NEWLM;
-    prefix = "/host";
+    prefix = secure_getenv( "CAPSULE_PREFIX" );
+    if( !prefix )
+        prefix = "/host";
 
     capsule_init();
 
