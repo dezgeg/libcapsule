@@ -76,7 +76,7 @@ do
     case $excluded in lib*) printf "%32s \"%s\",\n" "" $excluded; ;; esac;
 done < $proxy_excluded;
 cat - <<EOF
-                                NULL };
+                                 NULL };
 EOF
 
 if [ -f ${dlopen_file} ];
@@ -110,49 +110,49 @@ cat - <<EOF
 
 static void __attribute__ ((constructor)) _capsule_init (void)
 {
-     int   capsule_errno = 0;
-     char *capsule_error = NULL;
+    int   capsule_errno = 0;
+    char *capsule_error = NULL;
 
-     // this is an array of the functions we want to act as a shim for:
-     capsule_item_t relocs[] =
-       {
+    // this is an array of the functions we want to act as a shim for:
+    capsule_item_t relocs[] =
+      {
 EOF
 
 while read sym x; do echo "         { \"$sym\" },"; done < $symbol_file;
 
 cat - <<EOF
-         { NULL }
-       };
+        { NULL }
+      };
 
-     // and this is an aray of functions we must override in the DSOs
-     // inside the capsule (mostly to take account of the fact that
-     // they're pulled in from a tree with a filesystem prefix like /host)
-     // NOTE: the shim address here isn't used, but we give it the same
-     // value as the real function address so it's never accidentally
-     // a value the capsule code will care about:
-     capsule_item_t wrappers[] =
-       {
-         { "dlopen", (ElfW(Addr)) _dlopen, (ElfW(Addr)) _dlopen },
-         { NULL }
-       };
+    // and this is an aray of functions we must override in the DSOs
+    // inside the capsule (mostly to take account of the fact that
+    // they're pulled in from a tree with a filesystem prefix like /host)
+    // NOTE: the shim address here isn't used, but we give it the same
+    // value as the real function address so it's never accidentally
+    // a value the capsule code will care about:
+    capsule_item_t wrappers[] =
+      {
+        { "dlopen", (ElfW(Addr)) _dlopen, (ElfW(Addr)) _dlopen },
+        { NULL }
+      };
 
-     symbol_ns = LM_ID_NEWLM;
-     prefix = "/host";
+    symbol_ns = LM_ID_NEWLM;
+    prefix = "/host";
 
-     capsule_init();
+    capsule_init();
 
-     dso = capsule_dlmopen( "$proxied_dso", prefix, &symbol_ns, wrappers,
-                            0, exclude, &capsule_errno, &capsule_error );
+    dso = capsule_dlmopen( "$proxied_dso", prefix, &symbol_ns, wrappers,
+                           0, exclude, &capsule_errno, &capsule_error );
 
-     if( dso )
-     {
-         capsule_relocate( "$proxied_dso", dso, 0, relocs, &capsule_error );
-     }
-     else
-     {
-         fprintf( stderr, "capsule_dlmopen() failed: %s\\n", capsule_error );
-         exit( 1 );
-     }
+    if( dso )
+    {
+        capsule_relocate( "$proxied_dso", dso, 0, relocs, &capsule_error );
+    }
+    else
+    {
+        fprintf( stderr, "capsule_dlmopen() failed: %s\\n", capsule_error );
+        exit( 1 );
+    }
 }
 EOF
 
