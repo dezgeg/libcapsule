@@ -1,0 +1,95 @@
+Here we will outline the pieces necessary to build a libcapsule based
+library.
+
+At the moment libcapsule is still in its very early stages, so libraries
+that use libcapsule are built as part of libcapsule's build process.
+
+This will be broken out properly to allow external builds (technically
+it's possible right now but the details are not yet documented)
+
+Let us say we have a library libfoo.so.3.1 for which we wish to generate a
+capsule. We would need to make the following changes:
+
+============================================================================
+Makefile.am:
+
+Add a line like this with the other lib_LTLIBRARIES lines:
+
+lib_LTLIBRARIES       += libfoo.la
+
+Then in the 'shim libraries' section:
+
+libfoo_la_SOURCES       = shim/libfoo.so.c
+libfoo_la_LDFLAGS       = -lcapsule -version-number 3:1:0
+
+Or, if the library in question uses versioned symbols:
+
+libfoo_la_SOURCES       = shim/libfoo.so.c
+libfoo_la_LDFLAGS       = -lcapsule -version-number 3:1:0 \
+                          -Wl,--version-script=shim/libfoo.so.map
+
+============================================================================
+
+shim/libfoo.so.c.excluded
+
+This file should contain a list of libraries which should _NOT_
+be picked up from the /host tree and isolated in the capsule,
+one per line.
+
+The following libraries are always considered to be excluded by
+the code generator, so there's no need to add them explicitly:
+
+libc.so.6
+libpthread.so.0
+libpthread-2.19.so
+libdl.so.2
+
+============================================================================
+
+shim/libfoo.so.c.shared
+
+This file should contain any extra libraries whose symbols should _also_ be
+exported from the capsule, along with those from the main library libfoo.so.
+
+It will generally be empty, but in libGL.so's case it contains:
+
+libxcb.so.1
+libxcb-glx.so.0
+libxcb-dri2.so.0
+libxcb-dri3.so.0
+libxcb-present.so.0
+libxcb-sync.so.1
+libX11.so
+
+If your _application_ (ie the program itself, NOT libfoo) links against any
+of these directly, it will likely also need the same shared libraries in the
+.shared file.
+
+============================================================================
+
+shim/libfoo.so.c.dlopen
+
+If your library needs any special handling of dlopen() calls you will need to
+implement a function with the following signature and name:
+
+static void *_dlopen (const char *filename, int flags)
+{
+   ⋮
+}
+
+and put it in this file. If you do not, the default _dlopen wrapper generated
+by libcapsule's code generator will be installed instead.
+
+Do not create an empty file with this name if you do not need libfoo-specific
+dlopen handling.
+
+============================================================================
+
+That's it - you should be ready to
+
+  ./configure
+  make
+
+Your generated capsule libraries (and libcapsule) will be in .libs
+
+============================================================================

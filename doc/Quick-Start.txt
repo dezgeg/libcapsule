@@ -1,0 +1,45 @@
+ In the top level directory:
+
+  ./configure
+  make
+
+libcapsule.so and capsules for libGL.so and libz.so will be in .libs/
+
+Currently make install probably won't do what you want: There are details
+yet to be thrashed out since libcapsule is atypical in that it deliberately
+creates libraries with the same name as existing ones: But you can copy.
+
+The test environment is currently:
+
+A chroot containing a debian/jessie filesystem with libGL.so removed,
+with the "real" OS filesystem bind mounted at /host.
+
+In the chroot:
+
+Copy the generated libGL.so into an appropriate directory.
+
+Ensure that ldd $(which glxgears) points to the libGL.so capsule
+
+Make sure a full filesystem from the host OS is mounted at /host
+
+Make sure your chroot is set up so that trivial XOrg programs can run
+(xterm, xev, xeyes or whatever).
+
+Run glxgears.
+
+If it fails:
+
+ export CAPSULE_DEBUG=path,search,capsule,mprotect,wrappers,ldcache
+ glxgears 2>&1 | tee glxgears.capsule.log
+
+capsule debug flags: 
+  path     # path manipulation and translation
+  search   # searching for DSOs
+  ldcache  # loading/processing the ld cache
+  capsule  # setting up the proxy capsule
+  mprotect # handling mprotect (for RELRO)
+  wrappers # function wrappers installed in the capsule
+  reloc    # patching capsule symbols into external DSOs
+  elf      # detailed ELF introspection logging
+
+TODO: add instructions for bwrap instead of chroot here.

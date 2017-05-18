@@ -1,0 +1,51 @@
+libcapsule currently has the following limitations:
+
+============================================================================
+
+If there are > 1 copies of a library which handles allocation (eg
+libstdc++) the capsule cannot protect you from an object allocated
+by the encapsulated copy being freed by the public copy.
+
+Some libraries may be OK with this pattern of behaviour, others
+may not.
+
+============================================================================
+
+There can only ever be one copy of libc, libpthread and libdl shared
+between the capsule and the public namespace. This behaviour is baked
+into the stub library generator script. Probably nothing particularly
+sane will happen if you try to ignore this limitation.
+
+============================================================================
+
+Currently only functions are exported from the capsule. Unlike the
+previous items, this limitation is not intrinsic and could be lifted.
+
+============================================================================
+
+libcapsule relies on the ld.so.cache from the capsule tree to find
+libraries. If the cache is not there, it may still find some libraries
+in the default-standard locations but many paths will end up being ignored.
+
+============================================================================
+
+libcapsule replaces any instances of dlopen in the encapsulated libraries
+with a wrapper around dlmopen: It does this so that a capsule opened on the
+"/host" prefix (for example) continues to use DSOs (libraries and modules)
+from "/host", and to prevent dlopen() calls from within the capsule from
+breaking encapsulation.
+
+NB: Currently a dlopen() call from inside a dlmopen() namespace is unsupported
+by glibc anyway, and would result in a segfault.
+
+============================================================================
+
+Related to the above: The dlmopen wrapper cannot support RTLD_GLOBAL.
+
+If the library you are opening relies on calling dlopen() with RTLD_GLOBAL
+to expose symbols from one DSO to another it will not work.
+
+This is a glibc limitation - it could be lifted but would require
+the dlmopen libc call (and the linker) to be modified.
+
+============================================================================
