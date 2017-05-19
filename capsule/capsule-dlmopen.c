@@ -1475,7 +1475,7 @@ capsule_shim_dlopen(Lmid_t ns,
                     const char *file,
                     int flag)
 {
-    void *res;
+    void *res = NULL;
     int code = 0;
     char *errors = NULL;
     ldlibs_t ldlibs = { 0 };
@@ -1518,11 +1518,10 @@ capsule_shim_dlopen(Lmid_t ns,
         res = load_ldlibs( &ldlibs, &ns, flag, &code, &errors );
 
         if( !res )
-        {
             DEBUG( DEBUG_WRAPPERS,
                    "capsule dlopen error %d: %s", code, errors );
-            goto cleanup;
-        }
+
+        goto cleanup;
     }
     else // no prefix: straightforward dlmopen into our capsule namespace:
     {
