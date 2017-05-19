@@ -24,6 +24,9 @@
 
 unsigned long debug_flags;
 
+// like strncpy except it guarantees the final byte is NUL in
+// case we truncated the string. does not yet warn you in any
+// way about truncation though, should probably fix that:
 char *safe_strncpy (char *dest, const char *src, size_t n)
 {
     char *rv = strncpy( dest, src, n );
@@ -31,6 +34,16 @@ char *safe_strncpy (char *dest, const char *src, size_t n)
     return rv;
 }
 
+// prefix is the root of the external tree we're patching in
+// with libcapsule, path is what we're trying to resolve if
+// it is a symlink. dir is a scratch space we're going to use.
+// all three must have at least PATH_MAX chars allocated.
+//
+// Designed to be called repeatedly, starting with an ABSOLUTE
+// path the first time. Will write the resolved link back into
+// path each time and return true, until fed a path which is
+// not a symlink, at which point it will leave path alone and
+// return false:
 int resolve_link(const char *prefix, char *path, char *dir)
 {
     int dfd;
@@ -44,8 +57,10 @@ int resolve_link(const char *prefix, char *path, char *dir)
     if( end )
         *end = '\0';
     else
-        strcpy( dir, "." );
-
+        strcpy( dir, "." ); // not sure this is right, FIXME?
+                            // but as long as the first call to us
+                            // in any sequence was an absolute path
+                            // this will never come up
     dfd = open( dir, O_RDONLY );
 
     if( dfd < 0 )

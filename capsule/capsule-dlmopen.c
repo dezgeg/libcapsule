@@ -215,7 +215,8 @@ find_elf_constraints(ldlibs_t *ldlibs, struct link_map *m)
     Elf *dso = NULL;
     GElf_Ehdr ehdr = { };
 
-    // absolute path or it's a "fake" link map entry which we can't use:
+    // absolute path or it's a "fake" link map entry which we can't use
+    // as there's no actual file to open and inspect:
     if( !m || !m->l_name || (m->l_name[0] != '/'))
         return 0;
 
@@ -261,9 +262,12 @@ set_elf_constraints (ldlibs_t *ldlibs)
     if( (handle = dlopen( NULL, RTLD_LAZY|RTLD_NOLOAD )) &&
         (dlinfo( handle, RTLD_DI_LINKMAP, &map ) == 0)   )
     {
+        // we're not guaranteed to be at the start of the link map chain:
         while( map->l_prev )
             map = map->l_prev;
 
+        // check link maps until we find one we can fill in
+        // our constraints from:
         for( m = map; m; m = m->l_next )
             if( find_elf_constraints(ldlibs, m) )
                 break;
@@ -276,10 +280,9 @@ set_elf_constraints (ldlibs_t *ldlibs)
 
     return ( ( ldlibs->elf_class   != ELFCLASSNONE ) &&
              ( ldlibs->elf_machine |= EM_NONE      ) );
-
 }
 
-// check that the currently opened dso at offset idx in the needed array
+// check that the currently opened DSO at offset idx in the needed array
 // matches the class & architecture of the DSO we started with:
 // return true on a match, false otherwise
 static int
@@ -300,14 +303,20 @@ check_elf_constraints (ldlibs_t *ldlibs, int idx)
     if( ldlibs->elf_machine != ehdr.e_machine )
         return 0;
 
+    // both the class (word size) and machine (architecture) match
     return 1;
 }
 
+// make sure all the string buffers are zeroed out
 static inline void sanitise_ldlibs(ldlibs_t *ldlibs)
 {
     ldlibs->prefix.path[ ldlibs->prefix.len ] = '\0';
 }
 
+// as we are pulling in files from a non '/' prefix ('/host' by default)
+// we need to compensate for this when resolving symlinks.
+// this will keep following the path at entry i in ldlibs until
+// it finds something that is not a symlink.
 void resolve_symlink_prefixed (ldlibs_t *ldlibs, int i)
 {
     int count = 0;
@@ -315,7 +324,8 @@ void resolve_symlink_prefixed (ldlibs_t *ldlibs, int i)
     char link_dir[PATH_MAX];
 
     sanitise_ldlibs(ldlibs);
-    // prefix is unset or is /, nothing to do here:
+    // prefix is unset or is /, nothing to do here (we can rely on
+    // libc's built-in symlink following if there's no prefix):
     if( ldlibs->prefix.len == 0 ||
         (ldlibs->prefix.path[0] == '/' && ldlibs->prefix.path[1] == '\0') )
         return;
@@ -323,8 +333,11 @@ void resolve_symlink_prefixed (ldlibs_t *ldlibs, int i)
     LDLIB_DEBUG( ldlibs, DEBUG_PATH,
                  "resolving (un)prefixed link in %s", ldlibs->needed[i].path );
 
+    // set the resolved path to the current needed path as a starting point:
     safe_strncpy( resolved, ldlibs->needed[i].path, PATH_MAX );
 
+    // now keep poking resolve_link (resolved will be updated each time)
+    // until it returns false:
     while( resolve_link(ldlibs->prefix.path, resolved, link_dir) )
     {
         LDLIB_DEBUG( ldlibs, DEBUG_PATH, "  resolved to: %s", resolved );
@@ -338,6 +351,7 @@ void resolve_symlink_prefixed (ldlibs_t *ldlibs, int i)
         }
     }
 
+    // if the path changed, copy `resolved' back into needed[].path:
     if( count )
         safe_strncpy( ldlibs->needed[i].path, resolved, PATH_MAX );
 }
@@ -348,6 +362,15 @@ void resolve_symlink_prefixed (ldlibs_t *ldlibs, int i)
 //
 // will set up the needed entry at offset i correctly if we are
 // successful, and clear it if we are not:
+//
+// designed to be called on a populated ldlib needed entry, 'name'
+// is the original requested name (typically an absolute path to
+// a DSO or a standard DT_NEEDED style specifier following 'libfoo.so.X')
+//
+// note that this expects the prefix to have already been prepended
+// to the DSO path in the ldlibs->needed[i].path buffer if necessary
+// this is to allow both prefixed and unprefixed DSOs to be handled
+// here:
 static int
 ldlib_open (ldlibs_t *ldlibs, const char *name, int i)
 {
@@ -355,6 +378,7 @@ ldlib_open (ldlibs_t *ldlibs, const char *name, int i)
     LDLIB_DEBUG( ldlibs, DEBUG_SEARCH,
                  "ldlib_open: target -: %s", ldlibs->needed[i].path );
 
+    // resolve the symlink manually if there's a prefix:
     resolve_symlink_prefixed( ldlibs, i );
 
     LDLIB_DEBUG( ldlibs, DEBUG_SEARCH,
@@ -380,12 +404,15 @@ ldlib_open (ldlibs_t *ldlibs, const char *name, int i)
                      ldlibs->needed[i].dso ,
                      acceptable );
 
+        // either clean up the current entry so we can find a better DSO
+        // or (for a valid candidate) copy the original requested name in:
         if( !acceptable )
             clear_needed( &ldlibs->needed[i] );
         else
             ldlibs->needed[i].name = strdup( name );
     }
 
+    // the fd will only be valid if everything worked out:
     return ldlibs->needed[i].fd >= 0;
 }
 
@@ -432,11 +459,11 @@ iterate_ldcache (ldlibs_t *ldlibs, ldcache_entry_cb cb, void *data)
 // returning a true value means we found (and set up) the DSO we wanted:
 static int
 search_ldcache_cb (ldlibs_t *ldlibs,
-                   const char *name,
-                   int flag,
-                   unsigned int osv,
-                   uint64_t hwcap,
-                   const char *path,
+                   const char *name, // name of the DSO in the ldcache
+                   int flag,         // 1 for an ELF DSO
+                   unsigned int osv, // OS version. we don't use this
+                   uint64_t hwcap,   // HW caps. Ibid.
+                   const char *path, // absolute path to DSO (may be a symlink)
                    struct dso_cache_search *target)
 {
     // passed an empty query, just abort the whole search
@@ -455,9 +482,13 @@ search_ldcache_cb (ldlibs_t *ldlibs,
         size_t plen   = ldlibs->prefix.len;
         char  *lpath  = ldlibs->needed[ idx ].path;
 
+        // copy in the prefix and append the DSO path to it
         safe_strncpy( lpath, prefix, PATH_MAX );
         safe_strncpy( lpath + plen, path, PATH_MAX - plen );
 
+        // try to open the DSO. This will finish setting up the
+        // needed[idx] slot if successful, and reset it ready for
+        // another attempt if it fails:
         return ldlib_open( ldlibs, name, idx );
     }
 
@@ -532,6 +563,9 @@ search_ldpath (const char *name, const char *ldpath, ldlibs_t *ldlibs, int i)
                           PATH_MAX - plen - len - 1 );
 
             LDLIB_DEBUG( ldlibs, DEBUG_SEARCH, "examining %s", prefix );
+            // if path resolution succeeds _and_ we can open an acceptable
+            // DSO at that location, we're good to go (ldlib_open will
+            // finish setting up or clearing the needed[] entry for us):
             if( realpath( prefix, ldlibs->needed[i].path ) &&
                 ldlib_open( ldlibs, name, i ) )
                 return 1;
@@ -552,6 +586,7 @@ search_ldpath (const char *name, const char *ldpath, ldlibs_t *ldlibs, int i)
 //
 // Exceptions:
 // we don't support DT_RPATH/DT_RUNPATH
+// we don't handle ${ORIGIN} and similar
 // we will respect any path prefix specified in ldlibs
 //
 // if a match is found, the needed array entry at i will be populated
@@ -564,13 +599,15 @@ dso_find (const char *name, ldlibs_t *ldlibs, int i)
     const char *ldpath = NULL;
     int absolute = (name && (name[0] == '/'));
 
-    // absolute path, or relative to CWD:
+    // 'name' is an absolute path, or relative to CWD:
+    // we may to need to do some path manipulation
     if( strchr( name, '/' ) )
     {
         size_t plen = ldlibs->prefix.len;
         char prefixed[PATH_MAX];
         const char *target;
 
+        // we have a path prefix, so yes, we need to do some path manipulation:
         if( ldlibs->prefix.len )
         {
             sanitise_ldlibs(ldlibs);
@@ -581,7 +618,10 @@ dso_find (const char *name, ldlibs_t *ldlibs, int i)
                 safe_strncpy( prefixed + plen, name, PATH_MAX - plen );
             }
             else
-            {
+            {   // name is relative... this is probably wrong?
+                // I don't think this can ever really happen but
+                // worst case is we'll simply not open a DSO whose
+                // path we couldn't resolve, and then move on:
                 safe_strncpy( prefixed + plen, "/", PATH_MAX - plen );
                 safe_strncpy( prefixed + plen + 1, name, PATH_MAX - plen - 1);
             }
@@ -589,18 +629,24 @@ dso_find (const char *name, ldlibs_t *ldlibs, int i)
             target = prefixed;
         }
         else
-        {
+        {   // name is a standard bare 'libfoo.so.X' spec:
             target = name;
         }
 
         LDLIB_DEBUG( ldlibs, DEBUG_PATH, "resolving path %s", target );
+        // this will fail for a non-absolute path, but that's OK
+        // if realpath lookup succeeds needed[i].path will be set correctly:
         if( realpath( target, ldlibs->needed[i].path ) )
             return ldlib_open( ldlibs, name, i );
     }
 
+    // path was absolute and we couldn't resolve it. give up:
     if( absolute )
         return 0;
 
+    // now search LD_LIBRARY_PATH, the ld.so.cache, and the default locations
+    // in that order (similar algorithm to the linker, but with the RPATH and
+    // ${ORIGIN} support dropped)
     if( (ldpath = getenv( "LD_LIBRARY_PATH" )) )
         if( (found = search_ldpath( name, ldpath, ldlibs, i )) )
             return found;
@@ -668,6 +714,7 @@ _dso_iterate_sections (ldlibs_t *ldlibs, int idx)
         GElf_Shdr shdr = {};
         gelf_getshdr( scn, &shdr );
 
+        // SHT_DYNAMIC is the only section type we care about here:
         if( shdr.sh_type == SHT_DYNAMIC )
         {
             int i = 0;
@@ -676,6 +723,7 @@ _dso_iterate_sections (ldlibs_t *ldlibs, int idx)
 
             edata = elf_getdata( scn, edata );
 
+            // process eaach DT_* entry in the SHT_DYNAMIC section:
             while( !ldlibs->error                  &&
                    gelf_getdyn( edata, i++, &dyn ) &&
                    (dyn.d_tag != DT_NULL)          )
@@ -683,18 +731,21 @@ _dso_iterate_sections (ldlibs_t *ldlibs, int idx)
                 int skip = 0;
                 int next = ldlibs->last_idx;
                 dso_needed_t *needed = ldlibs->needed;
-                char *next_dso;
+                char *next_dso; // name of the dependency we're going to need
 
+                // we're only gathering DT_NEEDED (dependency) entries here:
                 if( dyn.d_tag != DT_NEEDED )
                     continue;
 
                 next_dso =
                   elf_strptr( needed[idx].dso, shdr.sh_link, dyn.d_un.d_val );
 
+                //////////////////////////////////////////////////
                 // ignore the linker itself
                 if( strstr( next_dso, "ld-" ) == next_dso )
                     continue;
 
+                // ignore any DSOs we've been specifically told to leave out:
                 for( char **x = (char **)ldlibs->exclude; x && *x; x++ )
                 {
                     if( strcmp( *x, next_dso ) == 0 )
@@ -705,11 +756,15 @@ _dso_iterate_sections (ldlibs_t *ldlibs, int idx)
                         break;
                     }
                 }
+
                 if( skip )
                     continue;
 
+                //////////////////////////////////////////////////
+                // if we got this far, we have another dependency:
                 needed[idx].depcount++;
 
+                // already on our list, no need to do anything else here:
                 if( already_needed( needed, idx, next_dso ) )
                     continue;
 
@@ -728,7 +783,9 @@ _dso_iterate_sections (ldlibs_t *ldlibs, int idx)
                 }
                 else
                 {
+                    // record which DSO requested the new library we found:
                     needed[next].requestors[idx] = 1;
+                    // now find the dependencies of our newest dependency:
                     _dso_iterate_sections( ldlibs, next );
                 }
             }
@@ -775,7 +832,7 @@ _dso_iterator_format_error (ldlibs_t * ldlibs)
 
 // wrapper to format any accumulated errors and similar after
 // invoking the actual dso iterator: returns true if we gathered
-// all the needed info witout error, falser otherwise:
+// all the needed info witout error, false otherwise:
 static int
 dso_iterate_sections (ldlibs_t *ldlibs, int idx)
 {
@@ -1094,6 +1151,8 @@ init_ldlibs (ldlibs_t *ldlibs,
     if( errcode )
         *errcode = 0;
 
+    // super important, 0 is valid but is usually stdin,
+    // don't want to go stomping all over that by accident:
     for( int x = 0; x < DSO_LIMIT; x++ )
         ldlibs->needed[x].fd = -1;
 
@@ -1224,6 +1283,7 @@ dump_ld_entry (ldlibs_t *ldlibs,
     return 0;
 }
 
+// dump out the contents of the ld cache to stderr:
 static void
 dump_ld_cache (ldlibs_t *ldlibs)
 {
@@ -1241,7 +1301,9 @@ wrap (const char *name,
     ElfW(Addr) start = (ElfW(Addr)) dyn - base;
     // we don't know the size so we'll have to rely on the linker putting
     // well formed entries into the mmap()ed DSO region.
-    // the utility functions expect an upper bound htough so set that to
+    // (tbf if the linker is putting duff entries here we're boned anyway)
+    //
+    // the utility functions expect an upper bound though so set that to
     // something suitably large:
     size_t size = SIZE_MAX - base - (ElfW(Addr)) dyn;
     relocation_data_t rdata = { 0 };
@@ -1250,6 +1312,10 @@ wrap (const char *name,
     rdata.debug     = debug_flags;
     rdata.error     = NULL;
     rdata.relocs    = wrappers;
+
+    // if RELRO linking has happened we'll need to tweak the mprotect flags
+    // before monkeypatching the symbol tables, for which we will need the
+    // sizes, locations and current protections of any mmap()ed regions:
     rdata.mmap_info = load_mmap_info( &mmap_errno, &mmap_error );
 
     if( mmap_errno || mmap_error )
@@ -1261,17 +1327,20 @@ wrap (const char *name,
                "relocation will be unable to handle RELRO linked libraries" );
     }
 
+    // make all the mmap()s writable:
     for( int i = 0; rdata.mmap_info[i].start != MAP_FAILED; i++ )
         if( mmap_entry_should_be_writable( &rdata.mmap_info[i] ) )
             add_mmap_protection( &rdata.mmap_info[i], PROT_WRITE );
 
-    process_pt_dynamic( (void *)start,  //  offset from phdr address to dyn section
+    // install any required wrappers inside the capsule:
+    process_pt_dynamic( (void *)start, // offset from phdr to dyn section
                         size,   //  fake size value (max possible value)
                         base,   //  address of phdr in memory
                         process_dt_rela,
                         process_dt_rel,
                         &rdata );
 
+    // put the mmap()/mprotect() permissions back the way they were:
     for( int i = 0; rdata.mmap_info[i].start != MAP_FAILED; i++ )
         if( mmap_entry_should_be_writable( &rdata.mmap_info[i] ) )
             reset_mmap_protection( &rdata.mmap_info[i] );
@@ -1299,6 +1368,9 @@ excluded_from_wrap (const char *name, char **exclude)
 // replace calls out to dlopen in the encapsulated DSO with a wrapper
 // which should take care of preserving the /path-prefix and namespace
 // wrapping of the original capsule_dlmopen() call.
+//
+// strictly speaking we can wrap things other than dlopen(),
+// but that's currently all we use this for:
 static int install_wrappers ( void *dl_handle,
                               capsule_item_t *wrappers,
                               const char **exclude,
@@ -1423,7 +1495,7 @@ capsule_dlmopen (const char *dso,
     }
 
     // ==================================================================
-    // once we have the starting point recursively FIND all its DT_NEEDED
+    // once we have the starting point recursively find all its DT_NEEDED
     // entries, except for the linker itself and libc, which must not
     // be different between the capsule and the "real" DSO environment:
     dso_iterate_sections( &ldlibs, 0 );
@@ -1488,6 +1560,7 @@ capsule_shim_dlopen(Lmid_t ns,
             goto cleanup;
         }
 
+        // find the initial DSO (ie what the caller actually asked for):
         if( !dso_find( file, &ldlibs, 0 ) )
         {
             int rv = (errno == 0) ? EINVAL : errno;
@@ -1498,6 +1571,7 @@ capsule_shim_dlopen(Lmid_t ns,
             goto cleanup;
         }
 
+        // harvest all the requested DSO's dependencies:
         dso_iterate_sections( &ldlibs, 0 );
 
         if( ldlibs.error )
@@ -1506,6 +1580,7 @@ capsule_shim_dlopen(Lmid_t ns,
             goto cleanup;
         }
 
+        // load them up in reverse dependency order:
         res = load_ldlibs( &ldlibs, &ns, flag, &code, &errors );
 
         if( !res )
