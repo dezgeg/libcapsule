@@ -1258,7 +1258,7 @@ wrap (const char *name,
                "mmap/mprotect flags information load error (errno: %d): %s",
                mmap_errno, mmap_error );
         DEBUG( DEBUG_MPROTECT,
-               "relocation will be unable to handle relro linked libraries" );
+               "relocation will be unable to handle RELRO linked libraries" );
     }
 
     for( int i = 0; rdata.mmap_info[i].start != MAP_FAILED; i++ )
