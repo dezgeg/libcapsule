@@ -271,7 +271,7 @@ set_elf_constraints (ldlibs_t *ldlibs)
     else
     {
         // this would be frankly beyond bizarre:
-        fprintf(stderr, "dlopen/dlinfo on self faild: %s\n", dlerror() );
+        fprintf(stderr, "dlopen/dlinfo on self failed: %s\n", dlerror() );
     }
 
     return ( ( ldlibs->elf_class   != ELFCLASSNONE ) &&
