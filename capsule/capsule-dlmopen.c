@@ -576,7 +576,7 @@ dso_find (const char *name, ldlibs_t *ldlibs, int i)
             sanitise_ldlibs(ldlibs);
             safe_strncpy( prefixed, ldlibs->prefix.path, PATH_MAX );
 
-            if( name[0] == '/' )
+            if( absolute )
             {
                 safe_strncpy( prefixed + plen, name, PATH_MAX - plen );
             }
