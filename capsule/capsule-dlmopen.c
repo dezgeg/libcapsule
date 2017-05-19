@@ -908,7 +908,7 @@ load_ld_cache (ldlibs_t *libs, const char *path)
         rv = 0;
     }
 
-    sanitise_ldlibs(libs);
+    sanitise_ldlibs( libs );
     return rv;
 
 no_cache:
