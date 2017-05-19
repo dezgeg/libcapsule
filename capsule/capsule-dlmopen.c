@@ -643,6 +643,10 @@ already_needed (dso_needed_t *needed, int requesting_idx, const char *name)
 // this function recurses into itself each time it finds a previously
 // unseen DT_NEEDED value (but not if the DT_NEEDED value is for a DSO
 // it has already found and recorded in the needed array)
+//
+// NOTE: you must use dso_find to seed the 0th entry in the needed array
+// or the elf handle in needed[0].dso will not be set up and hilarity*
+// will ensue.
 static void
 _dso_iterate_sections (ldlibs_t *ldlibs, int idx)
 {
@@ -651,8 +655,6 @@ _dso_iterate_sections (ldlibs_t *ldlibs, int idx)
     //debug(" ldlibs: %p; idx: %d (%s)", ldlibs, idx, ldlibs->needed[idx].name);
 
     ldlibs->last_idx = idx;
-    ldlibs->needed[idx].dso =
-      elf_begin( ldlibs->needed[idx].fd, ELF_C_READ_MMAP, NULL );
 
     LDLIB_DEBUG( ldlibs, DEBUG_ELF,
                  "%03d: fd:%d dso:%p ← %s",
