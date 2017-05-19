@@ -328,7 +328,14 @@ void resolve_symlink_prefixed (ldlibs_t *ldlibs, int i)
     while( resolve_link(ldlibs->prefix.path, resolved, link_dir) )
     {
         LDLIB_DEBUG( ldlibs, DEBUG_PATH, "  resolved to: %s", resolved );
-        count++;
+
+        if( ++count > MAXSYMLINKS )
+        {
+            fprintf( stderr, "%s: MAXSYMLINKS (%d) exceeded resolving %s\n",
+                     __PRETTY_FUNCTION__, MAXSYMLINKS,
+                     ldlibs->needed[i].path );
+            break;
+        }
     }
 
     if( count )
