@@ -663,9 +663,6 @@ _dso_iterate_sections (ldlibs_t *ldlibs, int idx)
                  ldlibs->needed[idx].dso,
                  ldlibs->needed[idx].path );
 
-    if( idx == 0 )
-        set_elf_constraints( ldlibs );
-
     while((scn = elf_nextscn( ldlibs->needed[idx].dso, scn )) != NULL)
     {
         GElf_Shdr shdr = {};
