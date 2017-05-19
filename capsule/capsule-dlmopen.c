@@ -839,6 +839,7 @@ load_ld_cache (ldlibs_t *libs, const char *path)
     // plain modern (circa 2016) cache map:
     if( memcmp( libs->cache_mmap->magic, CACHEMAGIC, sizeof(CACHEMAGIC) -1 ) )
     {
+        DEBUG( DEBUG_LDCACHE, "New format ld cache" );
         libs->cache.new = (struct cache_file_new *)libs->cache_mmap;
 
         // if the magic strings don't reside at the expected offsets, bail out:
@@ -862,6 +863,8 @@ load_ld_cache (ldlibs_t *libs, const char *path)
         size_t block  = header + (libs->cache_mmap->nlibs * entry);
         size_t offset = ALIGN_CACHE( block );
         int nlibs = libs->cache_mmap->nlibs;
+
+        DEBUG( DEBUG_LDCACHE, "Old format ld cache" );
 
         // it's an old-style cache, unless we successfully probe for a
         // nested new cache inside it:
@@ -887,24 +890,21 @@ load_ld_cache (ldlibs_t *libs, const char *path)
             }
             else
             {
+                DEBUG( DEBUG_LDCACHE, "... with a new style cache inside" );
                 libs->ctype = CACHE_NEW;
                 libs->cache_data = (char *)libs->cache.new;
             }
         }
     }
 
-    if (libs->cache_fd >= 0)
+    if( libs->cache_fd >= 0 )
     {
-        if (libs->debug)
-            fprintf(stderr, "Opened ld.cache at %s\n", cachepath);
-
+        DEBUG( DEBUG_LDCACHE, "Opened ld.cache at %s", cachepath );
         rv = 1;
     }
     else
     {
-        if (libs->debug)
-            fprintf(stderr, "No ld.cache at %s\n", cachepath);
-
+        DEBUG( DEBUG_LDCACHE, "No ld.cache at %s", cachepath );
         rv = 0;
     }
 
@@ -1316,7 +1316,7 @@ static int install_wrappers ( void *dl_handle,
         if( errcode )
             *errcode = EINVAL;
 
-        DEBUG( DEBUG_WRAPPERS, "mangling dlopen symbols: %s", *error );
+        DEBUG( DEBUG_WRAPPERS, "mangling capsule symbols: %s", *error );
 
         return -1;
     }
