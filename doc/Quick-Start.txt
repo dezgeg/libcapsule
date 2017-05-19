@@ -1,5 +1,6 @@
  In the top level directory:
 
+  autoreconf -ivf
   ./configure
   make
 

@@ -80,7 +80,7 @@ static void *_dlopen (const char *filename, int flags)
 and put it in this file. If you do not, the default _dlopen wrapper generated
 by libcapsule's code generator will be installed instead.
 
-Do not create an empty file with this name if you do not need libfoo-specific
+Do NOT create an empty file with this name if you do not need libfoo-specific
 dlopen handling.
 
 ============================================================================
