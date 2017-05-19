@@ -1393,9 +1393,6 @@ capsule_dlmopen (const char *dso,
 
     // ==================================================================
     // find the starting point of our capsule
-    // FIXME: are we assuming here that we'll find the right architecture
-    // first? That probably needs to be fixed up. Maybe seed the type
-    // in init_ldlibs from the currently mapped DSOs.
     if( !dso_find( dso, &ldlibs, 0 ) )
     {
         int rv = (errno == 0) ? EINVAL : errno;
