@@ -1456,11 +1456,8 @@ capsule_dlmopen (const char *dso,
         goto cleanup;
 
     // TODO: failure in the dlopen fixup phase should probably be fatal:
-    if( ret        != NULL     &&    // no errors so far
-        wrappers   != NULL     &&    // have a dlopen fixup function
-        ldlibs.prefix.len > 0  &&    // have a prefix
-        ldlibs.prefix.path     &&
-        strcmp("/", ldlibs.prefix.path) ) // prefix is not '/'
+    if( ret      != NULL && // no errors so far
+        wrappers != NULL )  // have a dlopen fixup function
         install_wrappers( ret, wrappers, exclude, errcode, error );
 
 cleanup:
