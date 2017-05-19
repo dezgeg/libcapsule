@@ -1327,11 +1327,8 @@ static int install_wrappers ( void *dl_handle,
                map ? map->l_prev : NULL );
 
     // no guarantee that we're at either end of the link map:
-    // walk it in both directions.
-    if (map->l_prev)
-        for( struct link_map *m = map; m; m = m->l_prev )
-            if( !excluded_from_wrap(m->l_name, (char **)exclude) )
-                wrap( m->l_name, m->l_addr, m->l_ld, wrappers );
+    while( map->l_prev )
+        map = map->l_prev;
 
     if (map->l_next)
         for( struct link_map *m = map; m; m = m->l_next )
