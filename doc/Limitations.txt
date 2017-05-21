@@ -49,3 +49,9 @@ This is a glibc limitation - it could be lifted but would require
 the dlmopen libc call (and the linker) to be modified.
 
 ============================================================================
+
+If you are using Mesa before v 17.x you will need to use `patchelf' v0.9
+or later to add a DT_NEEDED entry for libglapi.so.0 to your dri.so drivers
+in order for the libGL capsule to be able to work.
+
+============================================================================
