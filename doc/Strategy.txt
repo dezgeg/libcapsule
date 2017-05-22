@@ -1,0 +1,279 @@
+Everything You Never Wanted To Know About Dynamic Linking:
+----------------------------------------------------------------------------
+If you have gotten this far you're probably interested in how
+libcapsule does what it does: There's a lot of ground to cover
+and there are many pieces of the puzzle but we'll try to explain
+them all here.
+
+The background:
+----------------------------------------------------------------------------
+First, a simplified outline of dynamic linking: When a program is
+loaded, its type is determined. If it is ‘dynamically linked’, it
+will contain a list of libraries (DSOs or Dynamically Shared Objects)
+that it needs. Each of these DSOs will in turn contain a list
+of its own dependencies (more DSOs).
+
+The component of your system known as the linker will assemble the
+full list of all the required DSOs, open them, and following a
+somewhat intricate set of rules, copy (map) chunks of these files
+into memory.
+
+It then goes through every loaded DSO and fixes up each one by
+scribbling the relevant addresses into its (the DSO's) lookup
+table so that it can find the functions and variables (symbols)
+it needs to from each of its dependencies.
+
+Once this is done, the program is good to go: The system can
+start executing its instructions, jumping between the loaded
+DSOs (via the lookup tables in each one) as required.
+
+The problem:
+----------------------------------------------------------------------------
+So far so good: This is mostly the right thing to do, and solves
+a lot of problems we won't discuss here - But it does make some
+important assumptions. One these is the following:
+
+ - that every DSO involved that requires a specific DSO is going to be
+   happy with the same copy of the same version of that requirement.
+
+   In other words if a program needs libfoo.so and both the program
+   and libfoo.so require libbar.so, they will both be happy with a
+   single copy of libbar.so v3.14.159 (for example) provided by the
+   linker.
+
+This assumption is mostly true. In general things are happier when
+everything is built on the same set of libraries, but occasionally
+you can end up with a program that has conflicting requirements
+for the same DSO - libcapsule tries to solve that problem.
+
+The approach (the basics):
+----------------------------------------------------------------------------
+There are broadly two parts to the segregated-linker behaviour that we
+require:
+
+The first and more fundamental is mapping in the DSOs we wish to isolate
+in such a way that the linker does not (by default) use their symbols'
+addresses to fill in the lookup tables of the other DSOs we have loaded.
+Fortunately this part of the problem is addresses by the [relatively]
+new dlmopen() C library call. dlmopen() is similar to the dlopen() call,
+except that instead of opening a DSO (and all its dependencies) into the
+default linker namespace it does so into a private one, either creating
+a new namespace if requested, or using an existing namespace. [ There are
+one or two intricacies to this that we've glossed over here: We'll revisit
+this in greater detail later. ] 
+
+The second part is making just the symbols we want available to the rest
+of the DSOs our program consists of, ideally introducing as little overhead
+as possible: There are a couple of approaches we could take to this,
+each with problems of its own.
+
+dlmopen() (the gory details):
+----------------------------------------------------------------------------
+When dlmopen() is called, the algorithm is roughly as follows:
+
+  • find the requested DSO
+    ◦ if the path to the requested DSO is absolute, look for it there
+    ◦ if the path is relative (contains but does not begin with '/')
+     then look for it relative to the processes current working directory
+    ◦ if the path is bare, search for it using the standard linker algorithm:
+      ‣ look in RPATH baked into DSO (if there's no RUNPATH)
+      ‣ then LD_LIBRARY_PATH from environment
+      ‣ then RUNPATH baked into DSO
+      ‣ then contents of ld.so.cache
+      ‣ then /lib
+      ‣ & finally /usr/lib
+  • harvest the DT_NEEDED entries from the DSO
+    ◦ check if the DT_NEEDED entry is already in _our_ link map
+      (ie have we loaded the library for some other reason already)
+      we do not consider entries in the default link map, or any other
+      private namespaces created by dlmopen().
+    ◦ if we haven't, open it as for the original DSO above, and repeat.
+    ◦ if we already have the DSO open, add its link map structure
+      to your list of link maps without opening it again.
+  • once we don't require any more DSOs (we've opened everything)    
+    fix up the lookup tables using the link maps
+
+For the basic use case of opening a DSO without exposing its symbols
+to any other DSOs we already have this is sufficient. However in the
+libcapsule case there's a new wrinkle - we want to open a DSO (and
+most of its dependencies) from an external source. To give a concrete
+example:
+
+Consider an application inside a "runtime" (for our purposes, a mostly
+self-contained set of DSOs, binaries and so forth separated from the main
+system) which wants to use a library from the host OS (which is not
+compatible with the set of DSOs in the runtime, hence libcapsule).
+
+We have made the "real" set of libraries available under /host in the
+runtime (that is, the / of the real system is mounted at /host in the
+runtime, which has its own /).
+
+If we naively dlmopen() a DSO from the /host tree, dlmopen will go
+and find all the DT_NEEDED items required to satisfy it, but from
+/ instead of from /host (since dlmopen knows nothing about /host):
+
+Less than ideal, since in our special case we don't just need to isolate
+one DSO from the rest, but two whole set of DSOs from one another. So what's
+the solution?
+
+The key lies in the algorithm presented above: Note that before opening a
+DSO, we check to see if we already have it in our list of link maps: This
+check is done against the ‘bare’ "libfoo.so.X" style name of the DSO, not
+its full path.
+
+If we manually (and recursively) harvest the list of DSOs from the DT_NEEDED
+entries, and open them in reverse dependency order (ie we start with the
+thing that has no dependencies, then the things that only needed that, and
+so on and so forth) then the dlmopen() call won't go looking for them
+elsewhere.
+
+That's the theory - there are a few more details. For example:
+
+We need to be careful when resolving symlinks since the filesystem we
+are interested in is remapped to /host, not /, so absolute symlinks
+will point to the ‘wrong’ place).
+
+We must manually load the ld.so.cache from /host/etc/… and remap
+all its entries to the right location under /host (same reason as
+the symlink problem above).
+
+But having said that, the basic method works. Success! We can control
+the DSOs loaded to satisfy our target, and isolate them all in a
+private namespace.
+
+Controlling symbol visibility
+----------------------------------------------------------------------------
+Having succeeded in opening a DSO without exposing any of its symbols, we
+now need to make sure the other DSOs (including the main program) use the
+symbols from the DSO we _do_ want to expose.
+
+The simplest (in that it requires the least knowledge of the details of
+how a dynamically linked program works) approach would be to define, in
+a proxy library, for each function we wish to export, a proxy function
+with the same signature as its ‘real’ implementation, which could find
+that address with dlsym() and re-dispatch the call there, then let our
+program link against that (this last easily achieved by giving our proxy
+library the same name as the ‘real’ one).
+
+However, this has a few disadvantages:
+
+  • doesn't handle varargs functions
+  • requires knowledge of the signature of each function
+    ◦ this makes it much harder to automate proxy generation
+  • mechanism cannot be extended to handle variables
+  • doubles the function call overhead for every call: we have to
+    call our proxy function, which then makes the real call
+
+Ideally we'd like to find a different approach that has none of these
+limitations. To do so we're going to have to examine, in greater detail,
+how the "lookup tables" we've been talking about actually work.
+
+At the heart of all this is something called a Global Offset Table,
+or GOT (the name is possibly slightly misleading - it's not the table
+that's global, but the offsets).
+
+Each DSO contains a GOT, which consists of an array of entries, each
+containing (after dynamic linking has completed) the real address of
+a given function (or other object, but we're concerned with functions
+for now).
+
+Each DSO also contains a Procedure Linkage Table (NOTE: this is a
+lie, it contains two, but we turn out to care about only one of them).
+
+When an external function is called for the first time the following
+happens:
+
+   → The caller puts the function arguments on the stack.
+     the way in which it does so is determined by the ‘calling convention’,
+     a set of rules for passing arguments to and retrieving return values
+     from a function. Both DSOs involved in a call must agree on the
+     convention in order for this to work.
+
+   → Jump to the PLT entry for the function
+     This is at a fixed offset, so the only thing we need to
+     know to find it is the base address (in memory) of the section of
+     the DSO in which the PLT resides.
+
+   → The PLT entry points to an entry in the GOT.
+     The GOT is in a writable section of memory, but is of a fixed size
+     and has well defined entries of a fixed size also, so again, as long
+     as we know the base address, the PLT entry can always send us to
+     the right place.
+
+   → The GOT entry contains a ‘relocation record’. There are many different
+     types of relocation record - fortunately we only care about one.
+     This relocation record consists of two or three values which can be used
+     to calculate the real address to which execution should jump.
+
+     Having calculated our jump, we transfer execution there.
+     Now the _first_ time we encounter a GOT entry, it actually points
+     to a special function which finds the _real_ function address,
+     SCRIBBLES IT BACK INTO THE RELOCATION RECORD, then jumps to the
+     function proper.
+
+   → The function grabs the arguments from the stack, handles them,
+     pushes its return value (if any) onto the stack (as per the calling
+     convention), then passes control back to its caller.
+
+   → the caller pulls the return value off the stack, and does something
+     with it (or not).
+
+The _next_ time the function is called (from the same DSO), we will jump from
+the GOT directly to the function, without hitting the special resolver.
+
+    First call:                        Subsequent calls:
+
+      ┌───────┬──────────┐               ┌───────┬──────────┐   
+    ┌─┤ DSO A │ call foo │<───────┐    ┌─┤ DSO A │ call foo │<─┐    
+    │ └───────┴──────────┘        │    │ └───────┴──────────┘  │ 
+    └>┌───────┬──────────┐        │    └>┌───────┬──────────┐  │ 
+    ┌─┤ DSO A │ PLT: foo │        │    ┌─┤ DSO A │ PLT: foo │  │ 
+    │ └───────┴──────────┘        │    │ └───────┴──────────┘  │ 
+    └>┌───────┬─────────────────┐ │    └>┌───────┬──────────┐  │ 
+    ┌─┤ DSO A │ GOT: <Resolver> │ │    ┌─┤ DSO A │ GOT: foo │  │ 
+    │ └───────┴───┬─────────────┘ │    │ └───────┴──────────┘  │ 
+    │             ↿ <foo>         │    └>┌───────┬──────────┐  │ 
+    └>┌───────┬───┴──────┐        │      │ DSO B │ foo      ├──┘ 
+    ┌─┤ DSO A │ Resolver │        │      └───────┴──────────┘   
+    │ └───────┴──────────┘        │
+    └>┌───────┬──────────┐        │
+      │ DSO B │ foo      ├────────┘
+      └───────┴──────────┘   
+
+The key to where we jump is the relocation record in the GOT of DSO A
+It's worth noting here that the only things that know the signature
+(ie the argument and return types of foo) are the caller in DSO A and
+foo itself: None of the intermediates know or care. This is promising,
+as not caring about the signature is one of our goals.
+
+An approach that should work, then, is as follows:
+
+  • Prepare a proxy library with the same name as the real DSO
+  • Arrange for said proxy to have a public function for each one
+    we wish to proxy (signature unimportant, since we will never
+    actually call these stubroutines)
+  • In our [proxy] library initialisation stage:
+    ◦ walk the list of loaded DSOs
+    ◦ locate the PLT entry for each function we wish to proxy
+    ◦ fetch the address of the proxied function(s) using dlsym()
+      (this is the real address inside the private namespace)
+    ◦ follow the PLT to the GOT relocation record (RR)
+    ◦ scribble our real address into the GOT RR
+
+From now on, in each DSO we've scribbled on, calls to proxied functions
+will jump directly from its GOT to the real function in the private
+namespace, bypassing the resolver stage (and bypassing our proxy library
+entirely).
+
+NOTE: The above is mostly true. There is the case of RELRO linking,
+where the GOT:<Resolver> stage is handled early by the linker/loader,
+resolving all function addresses whether or not they're ever called.
+
+In RELRO linking the GOT memory page(s) are also mprotect()ed to read-only,
+which would prevent us from scribbling on the GOT(s) in question, but
+we can work around this by finding the relevant mprotect()ed pages and
+toggling the write permission bit on them before we start (and flipping
+the bit back when we're done).
+
+We can only currently work around RELRO linking on Linux currently: I'm not
+sure any other ELF systems expose the necessary mprotect meta data to us.
