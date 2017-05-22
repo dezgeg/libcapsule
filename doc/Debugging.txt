@@ -1,0 +1,20 @@
+If you wish to debug the library loading & symbol proxying process
+libcapsule exposes a lot of detail depending on the contents of the
+CAPSULE_DEBUG environment variable.
+
+CAPSULE_DEBUG is a comma-or-space separated variable, and currently
+understand the following debug flags:
+
+  path    : path manipulation and translation
+  search  : searching for DSOs
+  ldcache : loading/processing the ld cache
+  capsule : setting up the proxy capsule
+  mprotect: subverting mprotect (for RELRO linking)
+  wrappers: function wrappers installed in the capsule
+  reloc   : patching capsule symbols into external DSOs
+  elf     : detailed ELF introspection logging
+
+At this point gdb does not yet know about dlmopen()ed DSOs and their
+symbols, so debugging a libcapsule proxy library with gdb isn't very
+convenient. It's on the list of things to fix.
+
