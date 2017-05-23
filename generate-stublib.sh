@@ -34,7 +34,7 @@ dlopen_file=${proxy_src}.dlopen;
 echo -n > $symbol_file;
 echo -n > $map_file;
 
-exec >& $proxy_src;
+exec >$proxy_src;
 
 cat $top/capsule-shim.h;
 
