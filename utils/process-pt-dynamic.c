@@ -31,7 +31,13 @@
 #include "mmap-info.h"
 
 static void *
+#if __ELF_NATIVE_CLASS == 32
+addr (ElfW(Addr) base, ElfW(Addr) ptr, ElfW(Sword) addend)
+#elif __ELF_NATIVE_CLASS == 64
 addr (ElfW(Addr) base, ElfW(Addr) ptr, ElfW(Sxword) addend)
+#else
+#error "Unsupported __ELF_NATIVE_CLASS size (not 32 or 64)"
+#endif
 {
     if( (ptr + addend) > base )
         return (void *)(ptr + addend);
