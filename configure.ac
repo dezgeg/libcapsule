@@ -23,6 +23,16 @@ dnl and don't require ChangeLog &co if they don't exist
 AM_INIT_AUTOMAKE([-Wno-portability foreign])
 
 LT_INIT
+
+dnl ////////////////////////////////////////////////////////////////
+dnl Remove when the shim libraries move out into their own packages?
+dnl zlib demo:
 PKG_CHECK_MODULES([ZLIB], [zlib])
+dnl libGL demo:
+PKG_CHECK_MODULES([GL],   [gl])
+PKG_CHECK_MODULES([XCB2], [xcb-dri2])
+PKG_CHECK_MODULES([XCB3], [xcb-dri3])
+dnl ////////////////////////////////////////////////////////////////
+
 AC_SEARCH_LIBS([dlmopen], [dl])
 AC_OUTPUT([Makefile])
