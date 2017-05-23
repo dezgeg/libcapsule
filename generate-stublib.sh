@@ -38,10 +38,18 @@ exec >$proxy_src;
 
 cat $top/capsule-shim.h;
 
-for pt in $proxied_dso $(cat $proxy_extra);
-do
-    $top/print-libstubs $pt;
-done > $symbol_file;
+if (for pt in $proxied_dso $(cat $proxy_extra);
+    do
+        $top/print-libstubs $pt || exit 1;
+    done) > $symbol_file.tmp;
+then
+    mv $symbol_file.tmp $symbol_file;
+else
+    code=$?;
+    rm $symbol_file.tmp
+    exit $code;
+fi
+
 
 while read symbol version dependency;
 do
