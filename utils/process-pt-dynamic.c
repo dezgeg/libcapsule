@@ -234,20 +234,16 @@ process_dt_rela (const void *start,
         char *name = NULL;
         const ElfW(Sym) *symbol;
 
-        switch( __ELF_NATIVE_CLASS )
-        {
-          case 32:
-            sym = ELF32_R_SYM (entry->r_info);
-            chr = ELF32_R_TYPE(entry->r_info);
-            break;
-          case 64:
-            sym = ELF64_R_SYM (entry->r_info);
-            chr = ELF64_R_TYPE(entry->r_info);
-            break;
-          default:
-            fprintf( stderr, "__ELF_NATIVE_CLASS is neither 32 nor 64" );
-            exit( 22 );
-        }
+#if __ELF_NATIVE_CLASS == 32
+        sym = ELF32_R_SYM (entry->r_info);
+        chr = ELF32_R_TYPE(entry->r_info);
+#elif __ELF_NATIVE_CLASS == 64
+        sym = ELF64_R_SYM (entry->r_info);
+        chr = ELF64_R_TYPE(entry->r_info);
+#else
+        fprintf( stderr, "__ELF_NATIVE_CLASS is neither 32 nor 64" );
+        exit( 22 );
+#endif
 
         DEBUG( DEBUG_ELF, "RELA entry at %p", entry );
 
@@ -413,20 +409,16 @@ process_dt_rel (const void *start,
 
         const ElfW(Sym) *symbol;
 
-        switch( __ELF_NATIVE_CLASS )
-        {
-          case 32:
-            sym = ELF32_R_SYM (entry->r_info);
-            chr = ELF32_R_TYPE(entry->r_info);
-            break;
-          case 64:
-            sym = ELF64_R_SYM (entry->r_info);
-            chr = ELF64_R_TYPE(entry->r_info);
-            break;
-          default:
-            fprintf( stderr, "__ELF_NATIVE_CLASS is neither 32 nor 64" );
-            exit( 22 );
-        }
+#if __ELF_NATIVE_CLASS == 32
+        sym = ELF32_R_SYM (entry->r_info);
+        chr = ELF32_R_TYPE(entry->r_info);
+#elif __ELF_NATIVE_CLASS == 64
+        sym = ELF64_R_SYM (entry->r_info);
+        chr = ELF64_R_TYPE(entry->r_info);
+#else
+        fprintf( stderr, "__ELF_NATIVE_CLASS is neither 32 nor 64" );
+        exit( 22 );
+#endif
 
         symbol = find_symbol( sym, symtab, strtab, &name );
 
