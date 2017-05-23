@@ -34,5 +34,14 @@ PKG_CHECK_MODULES([XCB2], [xcb-dri2])
 PKG_CHECK_MODULES([XCB3], [xcb-dri3])
 dnl ////////////////////////////////////////////////////////////////
 
+dnl make sure we've got the _right_ libelf (doesn't ship a .pc)
+AC_CHECK_TYPE([Elf_Cmd], [], [], [#include <libelf.h>])
+AC_MSG_CHECKING([Elf_Cmd ELF_C_READ_MMAP])
+AC_RUN_IFELSE([AC_LANG_PROGRAM([#include <libelf.h>],
+                               [Elf_Cmd x = ELF_C_READ_MMAP;])],
+              [AC_MSG_RESULT([yes])],
+              [AC_MSG_RESULT([no])]
+              [AC_MSG_ERROR([ELF_C_READ_MMAP missing: libelfg vs libelf0?])])
+
 AC_SEARCH_LIBS([dlmopen], [dl])
 AC_OUTPUT([Makefile])
