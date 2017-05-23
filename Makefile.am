@@ -16,12 +16,12 @@
 # License along with libcapsule.  If not, see <http://www.gnu.org/licenses/>.
 
 V                     ?= 0
-AUTOMAKE_OPTIONS 	   = subdir-objects
+AUTOMAKE_OPTIONS       = subdir-objects
 ACLOCAL_AMFLAGS        = -I m4
-AM_CFLAGS 			   = --std=c99 -D_GNU_SOURCE -Wall -Werror
+AM_CFLAGS              = --std=c99 -D_GNU_SOURCE -Wall -Werror
 
-bin_PROGRAMS 		   = elf-dump print-libstubs
-lib_LTLIBRARIES 	   = libcapsule.la
+bin_PROGRAMS           = elf-dump print-libstubs
+lib_LTLIBRARIES        = libcapsule.la
 
 lib_LTLIBRARIES       += libz.la
 lib_LTLIBRARIES       += libGL.la
@@ -65,8 +65,8 @@ GENSTUB_V1 =
 GENSTUB_V0 = @echo "  GENSTUB " $(subst $(word 1, $(basename $(filter shim/lib%,$^))),,$(filter shim/lib%,$^)) : $@;
 GENSTUB    = $(GENSTUB_V$(V))
 
-CLEANFILES 			   = $(shim_files) $(shim_srcs)
-BUILT_SOURCES 		   = $(shim_srcs)
+CLEANFILES    = $(shim_files) $(shim_srcs)
+BUILT_SOURCES = $(shim_srcs)
 
 include disabled.mk
 
