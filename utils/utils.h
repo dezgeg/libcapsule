@@ -19,5 +19,23 @@
 
 #include "debug.h"
 
+#if __ELF_NATIVE_CLASS == 64
+#define FMT_OFF   "lu"
+#define FMT_SWORD "lu"
+#define FMT_WORD  "ld"
+#define FMT_SIZE  "lu"
+#define FMT_ADDR  "ld"
+#define FMT_XADDR "lx"
+#define FMT_XU64  "lx"
+#else
+#define FMT_OFF   "u"
+#define FMT_SWORD "u"
+#define FMT_WORD  "d"
+#define FMT_SIZE  "u"
+#define FMT_ADDR  "d"
+#define FMT_XADDR "x"
+#define FMT_XU64  "llx"
+#endif
+
 char *safe_strncpy (char *dest, const char *src, size_t n);
 int   resolve_link (const char *prefix, char *path, char *dir);

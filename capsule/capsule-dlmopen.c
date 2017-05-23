@@ -1279,7 +1279,7 @@ dump_ld_entry (ldlibs_t *ldlibs,
              osv & 0xff,
              osv );
 
-    fprintf( stderr, "  hwcaps: %0lx\n", hwcap );
+    fprintf( stderr, "  hwcaps: %0"FMT_XU64"\n", hwcap );
     return 0;
 }
 

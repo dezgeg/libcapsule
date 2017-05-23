@@ -28,6 +28,7 @@
 #include <limits.h>
 
 #include <link.h>
+#include "utils.h"
 
 // this file is a home for the various ways of parsing the ELF layout
 // of a program or library from within the executable itself, ie
@@ -489,7 +490,7 @@ dump_symtab (const char *indent,
         symbol_version( entry, x, strtab, versym, verdef, verdefnum,
                         &defversym, &version, &vs );
 
-        fprintf(stderr, "%s    // %02d [%-8s %-8s] size:%ld %s%s%s%s %04x %p\n",
+        fprintf(stderr, "%s    // %02d [%-8s %-8s] size:%"FMT_WORD" %s%s%s%s %04x %p\n",
                 indent,
                 x,
                 st_type( ELFW_ST_TYPE(entry->st_info) ),
@@ -513,7 +514,7 @@ void dump_interp (const char *indent, void *start, size_t size, ElfW(Addr) base)
 
     strncpy( &interpreter[0], start + base, PATH_MAX );
 
-    fprintf( stderr, "%s// %p %lu %p %s", indent, start, size, (void *)base,
+    fprintf( stderr, "%s// %p %"FMT_SIZE" %p %s", indent, start, size, (void *)base,
              interpreter );
     return;
 }
@@ -774,7 +775,7 @@ dump_rela (const char *indent,
 
         symbol = find_symbol( sym, symtab, strtab, &name );
         if( symbol )
-            fprintf( stderr, "%s    // [%03d] %16s off: %p; %s; add: %ld\n",
+            fprintf( stderr, "%s    // [%03d] %16s off: %p; %s; add: %"FMT_SWORD"\n",
                      indent,
                      x++,
                      reloc_type(chr),
@@ -782,7 +783,7 @@ dump_rela (const char *indent,
                      name,
                      entry->r_addend );
         else
-            fprintf( stderr, "%s    // [%03d] %16s off: %p; sym: %d; add: %ld\n",
+            fprintf( stderr, "%s    // [%03d] %16s off: %p; sym: %d; add: %"FMT_SWORD"\n",
                      indent,
                      x++,
                      reloc_type(chr),
@@ -909,7 +910,7 @@ dump_dynamic (const char *indent, void *start, size_t size, ElfW(Addr) base)
         switch( tag_type )
         {
           case TTYPE_VAL:
-            fprintf( stderr, "%s    { #%03d %20s(%ld) = val:%ld }\n",
+            fprintf( stderr, "%s    { #%03d %20s(%"FMT_SWORD") = val:%"FMT_WORD" }\n",
                      indent,
                      x++,
                      tag,
@@ -917,14 +918,14 @@ dump_dynamic (const char *indent, void *start, size_t size, ElfW(Addr) base)
                      entry->d_un.d_val );
             break;
           case TTYPE_PTR:
-            fprintf( stderr, "%s    { #%03d %20s(%ld) = ptr:%p }\n",
+            fprintf( stderr, "%s    { #%03d %20s(%"FMT_SWORD") = ptr:%p }\n",
                      indent, x++,
                      tag,
                      entry->d_tag,
                      addr( base, entry->d_un.d_ptr ) );
             break;
           case TTYPE_STR:
-            fprintf( stderr, "%s    { #%03d %20s(%ld) = str:%s }\n",
+            fprintf( stderr, "%s    { #%03d %20s(%"FMT_WORD") = str:%s }\n",
                      indent,
                      x++,
                      tag,
@@ -932,7 +933,7 @@ dump_dynamic (const char *indent, void *start, size_t size, ElfW(Addr) base)
                      strtab + entry->d_un.d_ptr );
             break;
           default:
-            fprintf( stderr, "%s    { #%03d %20s(%ld) = ???:%p }\n",
+            fprintf( stderr, "%s    { #%03d %20s(%"FMT_WORD") = ???:%p }\n",
                      indent,
                      x++,
                      tag,
@@ -1061,13 +1062,13 @@ struct dl_phdr_info                  \n\
     {
         fprintf(stderr, "    { // #%03d @ ( %p + %p ) %p\n\
         ElfW(Word)  p_type;    %d %s   \n\
-        ElfW(Off)   p_offset;  %ld     \n\
+        ElfW(Off)   p_offset;  %"FMT_OFF" \n\
         ElfW(Addr)  p_vaddr;   %p      \n\
         ElfW(Addr)  p_paddr;   %p      \n\
-        ElfW(Word)  p_filesz;  %lu    \n\
-        ElfW(Word)  p_memsz;   %lu    \n\
+        ElfW(Word)  p_filesz;  %"FMT_WORD" \n\
+        ElfW(Word)  p_memsz;   %"FMT_WORD" \n\
         ElfW(Word)  p_flags;   0x%x %s \n\
-        ElfW(Word)  p_align;   %ld \n",
+        ElfW(Word)  p_align;   %"FMT_WORD" \n",
                 j,
                 (void *)info->dlpi_addr             ,
                 (void *)info->dlpi_phdr[j].p_vaddr  ,

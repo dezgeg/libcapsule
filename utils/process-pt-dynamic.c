@@ -269,7 +269,7 @@ process_dt_rela (const void *start,
           case R_X86_64_JUMP_SLOT:
             slot = addr( base, entry->r_offset, entry->r_addend );
             DEBUG( DEBUG_ELF,
-                   "R_X86_64_JUMP_SLOT: %p ← { offset: %lu; addend: %ld }",
+                   "R_X86_64_JUMP_SLOT: %p ← { offset: %"FMT_ADDR"; addend: %"FMT_SIZE" }",
                    slot, entry->r_offset, entry->r_addend );
             try_relocation( slot, name, data );
             break;
@@ -466,7 +466,7 @@ process_pt_dynamic (void *start,
     const char *strtab = find_strtab( base, start, size, &strsiz );
 
     DEBUG( DEBUG_ELF,
-           "start: %p; size: %lu; base: %p; handlers: %p %p; …",
+           "start: %p; size: %"FMT_SIZE"; base: %p; handlers: %p %p; …",
            start, size, (void *)base, process_rela, process_rel );
     DEBUG( DEBUG_ELF, "dyn entry: %p", start + base );
 
