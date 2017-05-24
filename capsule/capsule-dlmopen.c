@@ -482,6 +482,9 @@ search_ldcache_cb (ldlibs_t *ldlibs,
         size_t plen   = ldlibs->prefix.len;
         char  *lpath  = ldlibs->needed[ idx ].path;
 
+        LDLIB_DEBUG( ldlibs, DEBUG_SEARCH|DEBUG_LDCACHE,
+                     "checking %s vs %s [%s]",
+                     target->name, name, path );
         // copy in the prefix and append the DSO path to it
         safe_strncpy( lpath, prefix, PATH_MAX );
         safe_strncpy( lpath + plen, path, PATH_MAX - plen );
@@ -616,6 +619,8 @@ dso_find (const char *name, ldlibs_t *ldlibs, int i)
             if( absolute )
             {
                 safe_strncpy( prefixed + plen, name, PATH_MAX - plen );
+                LDLIB_DEBUG( ldlibs, DEBUG_SEARCH|DEBUG_PATH,
+                             "absolute path to DSO %s", prefixed );
             }
             else
             {   // name is relative... this is probably wrong?
@@ -624,6 +629,8 @@ dso_find (const char *name, ldlibs_t *ldlibs, int i)
                 // path we couldn't resolve, and then move on:
                 safe_strncpy( prefixed + plen, "/", PATH_MAX - plen );
                 safe_strncpy( prefixed + plen + 1, name, PATH_MAX - plen - 1);
+                LDLIB_DEBUG( ldlibs, DEBUG_SEARCH|DEBUG_PATH,
+                             "relative path to DSO %s", prefixed );
             }
 
             target = prefixed;
@@ -633,7 +640,8 @@ dso_find (const char *name, ldlibs_t *ldlibs, int i)
             target = name;
         }
 
-        LDLIB_DEBUG( ldlibs, DEBUG_PATH, "resolving path %s", target );
+        LDLIB_DEBUG( ldlibs, DEBUG_SEARCH|DEBUG_PATH,
+                     "resolving path %s", target );
         // this will fail for a non-absolute path, but that's OK
         // if realpath lookup succeeds needed[i].path will be set correctly:
         if( realpath( target, ldlibs->needed[i].path ) )
@@ -644,6 +652,7 @@ dso_find (const char *name, ldlibs_t *ldlibs, int i)
     if( absolute )
         return 0;
 
+    LDLIB_DEBUG( ldlibs, DEBUG_SEARCH, "target DSO is %s", name );
     // now search LD_LIBRARY_PATH, the ld.so.cache, and the default locations
     // in that order (similar algorithm to the linker, but with the RPATH and
     // ${ORIGIN} support dropped)
