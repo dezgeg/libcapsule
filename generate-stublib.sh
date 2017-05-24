@@ -20,6 +20,18 @@
 set -u
 set -e
 
+major_version=0;
+
+parse_ldflags ()
+{
+    while [ $# -ge 2 ] && [ "$1" != -version-number ]; do shift; done;
+
+    if [ $# -ge 2 ] && [ "$1" = -version-number ] && [ -n "$2" ];
+    then
+        major_version=${2%%:*};
+    fi
+}
+
 declare -A NODE;
 top=$(dirname $0);
 top=${top:-.};
@@ -28,9 +40,16 @@ proxied_dso=$1;    shift;
 proxy_excluded=$1; shift;
 proxy_extra=$1;    shift;
 proxy_src=$1;      shift;
+ldflags=$1;        shift;
+
+parse_ldflags $ldflags;
+
+proxied_dso=${proxied_dso%.so*}.so.${major_version};
+
 symbol_file=${proxy_src%.c}.symbols;
 map_file=${proxy_src%.c}.map;
 dlopen_file=${proxy_src}.dlopen;
+
 echo -n > $symbol_file;
 echo -n > $map_file;
 

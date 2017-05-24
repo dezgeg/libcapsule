@@ -73,7 +73,7 @@ include disabled.mk
 # explicitly depend on the generators and .excluded and .shared metafiles
 # depend on the .dlopen file IFF it exists
 shim/lib%.so.c: generate-stublib.sh print-libstubs capsule-shim.h shim/lib%.so.c.*
-	$(GENSTUB)$(top_srcdir)/$< $$(basename $@ .c) $@.excluded $@.shared $@
+	$(GENSTUB)$(top_srcdir)/$< $$(basename $@ .c) $@.excluded $@.shared $@ 	"$(lib$(*)_la_LDFLAGS)";
 
 debug:
 	@echo srcs : $(shim_srcs)
