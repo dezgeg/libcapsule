@@ -1326,7 +1326,6 @@ wrap (const char *name,
     //
     // the utility functions expect an upper bound though so set that to
     // something suitably large:
-    size_t size = SIZE_MAX - base - (ElfW(Addr)) dyn;
     relocation_data_t rdata = { 0 };
 
     rdata.target    = name;
@@ -1361,7 +1360,7 @@ wrap (const char *name,
 
     // install any required wrappers inside the capsule:
     process_pt_dynamic( (void *)start, // offset from phdr to dyn section
-                        size,   //  fake size value (max possible value)
+                        0,      //  fake size value
                         base,   //  address of phdr in memory
                         process_dt_rela,
                         process_dt_rel,

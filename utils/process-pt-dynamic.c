@@ -84,7 +84,8 @@ find_strtab (ElfW(Addr) base, void *start, size_t size, int *siz)
     const char *tab = NULL;
 
     for( entry = start + base;
-         (entry->d_tag != DT_NULL) && ((void *)entry < (start + base + size));
+         (entry->d_tag != DT_NULL) &&
+           ((size == 0) || ((void *)entry < (start + base + size)));
          entry++ )
     {
         if( entry->d_tag == DT_STRTAB )
@@ -474,7 +475,8 @@ process_pt_dynamic (void *start,
            "strtab is at %p: %s%s", strtab, strtab, strtab ? "…" : "");
 
     for( entry = start + base;
-         (entry->d_tag != DT_NULL) && ((void *)entry < (start + base + size));
+         (entry->d_tag != DT_NULL) &&
+           ((size == 0) || ((void *)entry < (start + base + size)));
          entry++ )
         switch( entry->d_tag )
         {
