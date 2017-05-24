@@ -292,7 +292,7 @@ check_elf_constraints (ldlibs_t *ldlibs, int idx)
     int eclass;
 
     // bogus ELF DSO - no ehdr available?
-    if( !gelf_getehdr( ldlibs->needed[ 0 ].dso, &ehdr ) )
+    if( !gelf_getehdr( ldlibs->needed[ idx ].dso, &ehdr ) )
         return 0;
 
     eclass = gelf_getclass( ldlibs->needed[ idx ].dso );
