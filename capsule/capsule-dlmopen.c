@@ -289,19 +289,27 @@ static int
 check_elf_constraints (ldlibs_t *ldlibs, int idx)
 {
     GElf_Ehdr ehdr = {};
+    int eclass;
 
     // bogus ELF DSO - no ehdr available?
     if( !gelf_getehdr( ldlibs->needed[ 0 ].dso, &ehdr ) )
         return 0;
 
+    eclass = gelf_getclass( ldlibs->needed[ idx ].dso );
+
     // check class (32 vs 64 bit)
-    if( ldlibs->elf_class != gelf_getclass( ldlibs->needed[ idx ].dso ) )
+    if( ldlibs->elf_class != eclass )
         return 0;
 
     // check target architecture (i386, x86-64)
     // x32 ABI is class 32 but machine x86-64
     if( ldlibs->elf_machine != ehdr.e_machine )
         return 0;
+
+    DEBUG( DEBUG_ELF, "constraints: class %d; machine: %d;",
+           ldlibs->elf_class, ldlibs->elf_machine );
+    DEBUG( DEBUG_ELF, "results    : class %d; machine: %d;",
+           eclass, ehdr.e_machine );
 
     // both the class (word size) and machine (architecture) match
     return 1;
