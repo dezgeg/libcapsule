@@ -1320,6 +1320,10 @@ wrap (const char *name,
     // well formed entries into the mmap()ed DSO region.
     // (tbf if the linker is putting duff entries here we're boned anyway)
     //
+    // dyn is the address of the dynamic section
+    // base is the start of the program header in memory
+    // start should be the offset from the program header to its dyn section
+    //
     // the utility functions expect an upper bound though so set that to
     // something suitably large:
     size_t size = SIZE_MAX - base - (ElfW(Addr)) dyn;
