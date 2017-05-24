@@ -1353,6 +1353,12 @@ wrap (const char *name,
         if( mmap_entry_should_be_writable( &rdata.mmap_info[i] ) )
             add_mmap_protection( &rdata.mmap_info[i], PROT_WRITE );
 
+    // if we're debugging wrapper installation in detail we
+    // will end up in a path that's normally only DEBUG_ELF
+    // debugged:
+    if( debug_flags & DEBUG_WRAPPERS )
+        debug_flags = debug_flags | DEBUG_ELF;
+
     // install any required wrappers inside the capsule:
     process_pt_dynamic( (void *)start, // offset from phdr to dyn section
                         size,   //  fake size value (max possible value)
@@ -1360,6 +1366,9 @@ wrap (const char *name,
                         process_dt_rela,
                         process_dt_rel,
                         &rdata );
+
+    // put the debug flags back in case we changed them
+    debug_flags = rdata.debug;
 
     // put the mmap()/mprotect() permissions back the way they were:
     for( int i = 0; rdata.mmap_info[i].start != MAP_FAILED; i++ )
