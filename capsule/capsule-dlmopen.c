@@ -577,6 +577,7 @@ search_ldpath (const char *name, const char *ldpath, ldlibs_t *ldlibs, int i)
             // if path resolution succeeds _and_ we can open an acceptable
             // DSO at that location, we're good to go (ldlib_open will
             // finish setting up or clearing the needed[] entry for us):
+            // FIXME: this is broken if the target is an absolute symlink
             if( realpath( prefix, ldlibs->needed[i].path ) &&
                 ldlib_open( ldlibs, name, i ) )
                 return 1;
