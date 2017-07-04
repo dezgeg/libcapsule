@@ -32,8 +32,12 @@ nodist_include_HEADERS = utils/utils.h utils/dump.h utils/process-pt-dynamic.h
 elf_dump_SOURCES       = utils/elf-dump.c
 elf_dump_LDFLAGS       = -ldl
 
-print_libstubs_SOURCES = utils/print-libstubs.c
-print_libstubs_LDFLAGS = -ldl
+print_libstubs_SOURCES = utils/print-libstubs.c \
+                         utils/utils.c          \
+                         utils/ld-cache.c       \
+                         utils/ld-libs.c
+print_libstubs_LDFLAGS = -ldl -lelf
+print_libstubs_CFLAGS  = $(AM_CFLAGS)
 
 libcapsule_la_SOURCES  = capsule/capsule-dlmopen.c  \
                          capsule/capsule-relocate.c \

@@ -59,7 +59,7 @@ cat $top/capsule-shim.h;
 
 if (for pt in $proxied_dso $(cat $proxy_extra);
     do
-        $top/print-libstubs $pt || exit 1;
+        $top/print-libstubs $pt /host || exit 1;
     done) > $symbol_file.tmp;
 then
     mv $symbol_file.tmp $symbol_file;

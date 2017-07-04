@@ -23,11 +23,23 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/param.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <limits.h>
 
 #include <link.h>
+
+#include "utils.h"
+#include "ld-cache.h"
+#include "ld-libs.h"
+
+typedef struct
+{
+    size_t plen;
+    const char *prefix;
+    const char *target;
+} dso_search_t;
 
 // these macros are secretly the same for elf32 & elf64:
 #define ELFW_ST_TYPE(a)       ELF32_ST_TYPE(a)
@@ -177,12 +189,11 @@ addr (ElfW(Addr) base, ElfW(Addr) ptr)
 }
 
 static const ElfW(Dyn) *
-find_dyn (ElfW(Addr) base, void *start, size_t size, int what)
+find_dyn (ElfW(Addr) base, void *start, int what)
 {
     ElfW(Dyn) *entry = start + base;
-    void *limit = start + base + size;
 
-    for( ; (entry->d_tag != DT_NULL) && ((void *)entry < limit); entry++ )
+    for( ; entry->d_tag != DT_NULL; entry++ )
         if( entry->d_tag == what )
             return entry;
 
@@ -190,16 +201,16 @@ find_dyn (ElfW(Addr) base, void *start, size_t size, int what)
 }
 
 int
-find_value (ElfW(Addr) base, void *start, size_t size, int what)
+find_value (ElfW(Addr) base, void *start, int what)
 {
-    const ElfW(Dyn) *entry = find_dyn( base, start, size, what );
+    const ElfW(Dyn) *entry = find_dyn( base, start, what );
     return entry ? entry->d_un.d_val : -1;
 }
 
 ElfW(Addr)
-find_ptr (ElfW(Addr) base, void *start, size_t size, int what)
+find_ptr (ElfW(Addr) base, void *start, int what)
 {
-    const ElfW(Dyn) *entry = find_dyn( base, start, size, what );
+    const ElfW(Dyn) *entry = find_dyn( base, start, what );
     return entry ? entry->d_un.d_ptr : (ElfW(Addr)) NULL;
 }
 
@@ -233,55 +244,48 @@ find_symbol (int idx, const ElfW(Sym) *stab, const char *str, char **name)
 }
 
 const char *
-find_strtab (ElfW(Addr) base, void *start, size_t size, int *siz)
+find_strtab (ElfW(Addr) base, void *start, int *siz)
 {
     ElfW(Dyn) *entry;
 
     const char *tab = NULL;
 
-    for( entry = start + base;
-         (entry->d_tag != DT_NULL) && ((void *)entry < (start + base + size));
-         entry++ )
-    {
+    for( entry = start + base; entry->d_tag != DT_NULL; entry++ )
         if( entry->d_tag == DT_STRTAB )
-        {
             tab  = (char *)addr(base, entry->d_un.d_ptr);
-        }
         else if( entry->d_tag == DT_STRSZ  )
-        {
             *siz = entry->d_un.d_val;
-        }
-    }
 
     return tab;
 }
 
 static void
-parse_dynamic (void *start, size_t size, ElfW(Addr) base)
+parse_dynamic (ElfW(Addr) base, ElfW(Dyn) *dyn)
 {
-    ElfW(Dyn) *entry;
 
     int strsiz     = -1;
     int verdefnum  = -1;
-
+    void *start    = NULL;
     const void *symtab = NULL;
     const void *versym = NULL;
     const void *verdef = NULL;
-    const char *strtab = find_strtab( base, start, size, &strsiz );
+    const char *strtab = NULL;
+    ElfW(Dyn) *entry   = NULL;
 
-    for( entry = start + base;
-         (entry->d_tag != DT_NULL) && ((void *)entry < (start + base + size));
-         entry++ )
+    start  = (void *) ((ElfW(Addr)) dyn - base);
+    strtab = find_strtab( base, (void *) start, &strsiz );
+
+    for( entry = dyn; entry->d_tag != DT_NULL; entry++ )
     {
         switch( entry->d_tag )
         {
           case DT_SYMTAB:
             if( versym == NULL )
-                versym = addr( base, find_ptr( base, start, size, DT_VERSYM ) );
+                versym = addr( base, find_ptr( base, start, DT_VERSYM ) );
             if( verdef == NULL )
-                verdef = addr( base, find_ptr( base, start, size, DT_VERDEF ) );
+                verdef = addr( base, find_ptr( base, start, DT_VERDEF ) );
             if( verdefnum == -1 )
-                verdefnum = find_value( base, start, size, DT_VERDEFNUM );
+                verdefnum = find_value( base, start, DT_VERDEFNUM );
 
             symtab = addr( base, entry->d_un.d_ptr );
             parse_symtab( symtab, strtab, versym, verdef, verdefnum );
@@ -293,7 +297,7 @@ parse_dynamic (void *start, size_t size, ElfW(Addr) base)
 
           case DT_VERDEF:
             if( verdefnum == -1 )
-                verdefnum = find_value( base, start, size, DT_VERDEFNUM );
+                verdefnum = find_value( base, start, DT_VERDEFNUM );
             verdef = addr( base, entry->d_un.d_ptr );
             // parse_verdef( verdef, strtab, verdefnum );
             break;
@@ -312,59 +316,95 @@ parse_dynamic (void *start, size_t size, ElfW(Addr) base)
 }
 
 static int
-phdr_cb (struct dl_phdr_info *info, size_t size, void *data)
+dso_name_matches (const char *target, const char *maybe)
 {
-    int j;
+    const char *dir = strrchr( maybe, '/' );
+    const int   len = strlen( target );
 
-    if( strstr( info->dlpi_name, (const char *)data ) == NULL )
+    // maybe contains a full path:
+    if( !dir )
         return 0;
 
-    for( j = 0; j < info->dlpi_phnum; j++ )
-    {
-        switch(info->dlpi_phdr[j].p_type)
-        {
-          case PT_DYNAMIC:
-            parse_dynamic((void *) info->dlpi_phdr[j].p_vaddr,
-                          info->dlpi_phdr[j].p_memsz,
-                          info->dlpi_addr);
-            break;
+    // maybe's filename is at least long enough to match target
+    if( strlen(++dir) < len )
+        return 0;
 
-          default:
-            break;
-        }
+    // /maybefilename matches /target
+    if( memcmp(dir, target, len) )
+        return 0;
+
+    // the last major/minor/etc number didn't actually match
+    // eg libfoo.so.1 vs libfoo.so.10
+    if ( *(dir + len) != '.' && *(dir + len) != '\0' )
+        return 0;
+
+    return 1;
+}
+
+static void
+dump_symbols (void *handle, const char *libname)
+{
+    int dlcode = 0;
+    struct link_map *map;
+
+    if( (dlcode = dlinfo( handle, RTLD_DI_LINKMAP, &map )) )
+    {
+        fprintf( stderr, "cannot access symbols for %s via handle %p [%d]\n",
+                 libname, handle, dlcode );
+        exit( dlcode );
     }
 
-    return 0;
+    // find start of link map chain:
+    while( map->l_prev )
+        map = map->l_prev;
+
+    for( struct link_map *m = map; m; m = m->l_next )
+        if( dso_name_matches( libname, m->l_name ) )
+            parse_dynamic( m->l_addr, m->l_ld );
+
 }
 
 int main (int argc, char **argv)
 {
-    void *handle;
     const char *libname;
+    const char *prefix = NULL;
+    ld_libs_t ldlibs = {};
+    int error = 0;
+    Lmid_t ns = LM_ID_NEWLM;
+    void *handle;
 
     if( argc < 2 )
     {
-        fprintf( stderr, "usage: %s <ELF-DSO>\n", argv[0] );
+        fprintf( stderr, "usage: %s <ELF-DSO> [/path/prefix]\n", argv[0] );
         exit( 1 );
     }
 
-    handle = dlopen( argv[1], RTLD_NOW|RTLD_GLOBAL );
+    if( argc > 2 )
+        prefix = argv[2];
 
-    if( !handle )
+    if( ld_libs_init( &ldlibs, NULL, prefix, 0, &error ) &&
+        ld_libs_set_target( &ldlibs, argv[1] )           &&
+        ld_libs_find_dependencies( &ldlibs )             &&
+        (handle = ld_libs_load( &ldlibs, &ns, 0, &error)) )
     {
-        int e = errno;
-        char *err = dlerror();
-        fprintf( stderr, "%s: failed to open %s (%d: %s)\n",
-                 argv[0], argv[1], e ? e : ENOENT, err );
+        if( (libname = strrchr( argv[1], '/' )) )
+            libname = libname + 1;
+        else
+            libname = argv[1];
+
+        fprintf(stderr, "opened %s from %s\n", argv[1], prefix);
+        // dl_iterate_phdr won't work with private dlmopen namespaces:
+        dump_symbols( handle, libname );
+    }
+    else
+    {
+        int e = (error == 0) ? errno : error;
+        fprintf( stderr, "%s: failed to open [%s]%s (%d: %s)\n",
+                 argv[0], argv[2], argv[1],
+                 e ? e : ENOENT,
+                 ldlibs.error ? ldlibs.error : "unspecified error" );
         exit(e ? e : ENOENT);
     }
-
-    if( (libname = strrchr( argv[1], '/' )) )
-        libname = libname + 1;
-    else
-        libname = argv[1];
-
-    dl_iterate_phdr( phdr_cb, (void *)libname );
 
     exit(0);
 }
