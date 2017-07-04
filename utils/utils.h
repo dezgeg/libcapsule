@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <link.h> // for __ELF_NATIVE_CLASS
 #include "debug.h"
 
 #if __ELF_NATIVE_CLASS == 64
