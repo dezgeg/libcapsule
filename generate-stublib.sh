@@ -92,9 +92,6 @@ static void *dso;
 // in any case, these are DSOs we do _not_ want to isolate
 static const char *exclude[] = { // MUST NOT be pulled from the capsule
                                  // prefixed filesystem tree:
-                                 "libc.so.6",
-                                 "libpthread.so.0",
-                                 "libpthread-2.19.so",
                                  "libdl.so.2",
 EOF
 
