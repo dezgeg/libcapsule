@@ -210,6 +210,36 @@ static int install_wrappers ( void *dl_handle,
     return replacements;
 }
 
+// dump the link map info for the given dl handle (NULL = default)
+static void
+dump_link_map( void *dl_handle )
+{
+    struct link_map *map;
+    void *handle;
+
+    if( !dl_handle )
+        handle = dlopen( NULL, RTLD_LAZY|RTLD_NOLOAD );
+    else
+        handle = dl_handle;
+
+    if( dlinfo( handle, RTLD_DI_LINKMAP, &map ) != 0 )
+    {
+        DEBUG( DEBUG_CAPSULE, "failed to access link_map for handle %p-%p: %s",
+               dl_handle, handle, dlerror() );
+        return;
+    }
+
+    // be kind, rewind the link map:
+    while( map->l_prev )
+        map = map->l_prev;
+
+    fprintf( stderr, "(dl-handle %s", dl_handle ? "CAPSULE" : "DEFAULT" );
+    for( struct link_map *m = map; m; m = m->l_next )
+        fprintf( stderr, "\n  [%p] %s [%p]\n",
+                 m->l_prev, m->l_name, m->l_next );
+    fprintf( stderr, ")\n" );
+}
+
 // ==========================================================================
 void *
 capsule_dlmopen (const char *dso,
@@ -297,6 +327,11 @@ capsule_dlmopen (const char *dso,
     // load the stack of DSOs we need:
     ret = ld_libs_load( &ldlibs, namespace, 0, errcode );
 
+    if( debug_flags & DEBUG_CAPSULE )
+    {
+        dump_link_map( ret  );
+        dump_link_map( NULL );
+    }
 
     if( !ret )
         goto cleanup;
