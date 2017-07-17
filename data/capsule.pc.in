@@ -1,0 +1,14 @@
+prefix=@prefix@
+libdir=@libdir@
+includedir=@includedir@
+libexecdir=@libexecdir@
+datadir=@datadir@
+makeinc=@datadir@/libcapsule
+
+Name: capsule
+Description: segregated dynamic linking library
+Version: @VERSION@
+
+Requires:
+Libs: -L${libdir} -lcapsule
+Cflags: -I${includedir}

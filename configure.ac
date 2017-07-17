@@ -35,4 +35,4 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([#include <libelf.h>],
               [AC_MSG_ERROR([ELF_C_READ_MMAP missing: libelfg vs libelf0?])])
 
 AC_SEARCH_LIBS([dlmopen], [dl])
-AC_OUTPUT([Makefile])
+AC_OUTPUT([Makefile data/capsule.pc data/dirconf.txt])
