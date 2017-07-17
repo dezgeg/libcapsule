@@ -24,16 +24,6 @@ AM_INIT_AUTOMAKE([-Wno-portability foreign])
 
 LT_INIT
 
-dnl ////////////////////////////////////////////////////////////////
-dnl Remove when the shim libraries move out into their own packages?
-dnl zlib demo:
-PKG_CHECK_MODULES([ZLIB], [zlib])
-dnl libGL demo:
-PKG_CHECK_MODULES([GL],   [gl])
-PKG_CHECK_MODULES([XCB2], [xcb-dri2])
-PKG_CHECK_MODULES([XCB3], [xcb-dri3])
-dnl ////////////////////////////////////////////////////////////////
-
 dnl make sure we've got the _right_ libelf (doesn't ship a .pc)
 AC_CHECK_TYPE([Elf_Cmd], [], [], [#include <libelf.h>])
 AC_MSG_CHECKING([Elf_Cmd ELF_C_READ_MMAP])
