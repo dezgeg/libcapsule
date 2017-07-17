@@ -1,0 +1,40 @@
+Source: libcapsule
+Section: libs
+Priority: optional
+Maintainer: Vivek Das Mohapatra <vivek@collabora.com>
+Standards-Version: 3.9.8
+Build-Depends:
+ dh-autoreconf,
+ autoconf,
+ debhelper,
+ libelf-dev
+Vcs-Git: git://git.collabora.com/git/user/vivek/libcapsule.git
+Vcs-Browser: https://git.collabora.com/cgit/user/vivek/libcapsule.git/
+
+Package: libcapsule
+Architecture: i386 amd64
+Multi-Arch: same
+Section: libs
+Priority: optional
+Depends: ${shlibs:Depends}
+Description: Segregated run-time linker library
+ libcapsule is a helper library used to implement segregated run-time
+ dynamic linking proxy libraries - used (for example) to load a library
+ that has dependencies incompatible with the regular libraries that are
+ part of the host OS, such as an incompatible libstdc++ version.
+ .
+ This package contains the run-time component(s) of libcapsule.
+
+Package: libcapsule-dev
+Architecture: i386 amd64
+Multi-Arch: same
+Section: libdevel
+Priority: optional
+Depends: libcapsule (= ${binary:Version}), libc6-dev, libelf-dev, bash
+Description: 
+ libcapsule is a helper library used to implement segregated run-time
+ dynamic linking proxy libraries - used (for example) to load a library
+ that has dependencies incompatible with the regular libraries that are
+ part of the host OS, such as an incompatible libstdc++ version.
+ .
+ This package contains the files needed to build libcapsule proxy libraries.

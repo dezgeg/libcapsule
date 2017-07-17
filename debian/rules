@@ -1,0 +1,9 @@
+#!/usr/bin/make -f
+
+%:
+	@echo "DH $@"
+	dh $@ --with autoreconf
+
+override_dh_auto_configure:
+	dh_auto_configure -- --libexecdir=\$${libdir}/capsule
+

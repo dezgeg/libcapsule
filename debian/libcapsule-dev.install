@@ -1,0 +1,11 @@
+usr/lib/*/capsule/capsule-symbols
+usr/lib/*/capsule/capsule-version
+usr/lib/*/capsule/capsule-mkstublib
+usr/lib/*/capsule/capsule-init-project
+usr/lib/*/libcapsule.la
+usr/lib/*/libcapsule.a
+usr/lib/*/libcapsule.so
+usr/lib/*/pkgconfig/
+usr/lib/*/pkgconfig/capsule.pc
+usr/include/*
+usr/share/*/*
