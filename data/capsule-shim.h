@@ -22,7 +22,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 
-#include <capsule/capsule.h>
+#include <capsule.h>
 
 #define UNVERSIONED_STUB(name) \
     void name (void) { fprintf(stderr, "! SHIM " #name " called\n" ); return; }
@@ -30,9 +30,7 @@
 #define VERSIONED_STUB(name,version) \
     UNVERSIONED_STUB(name);
 
-// we used to do the linking here but that actually gets messy
-// since you need the link map anyway to declare the version nodes
-// and it turns out you have to make an extra _name symbol to do
-// versioned symbols via __asm__ directives
+// We don't support versioned symbols properly yet, they need som
+// asm magic that looks like this and I'm not clear on the details:
 // __asm__(".symver _" #name "," #name #version)
 
