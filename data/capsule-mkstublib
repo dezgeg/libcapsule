@@ -22,14 +22,9 @@ set -e
 
 major_version=0;
 
-parse_ldflags ()
+parse_ltver ()
 {
-    while [ $# -ge 2 ] && [ "$1" != -version-number ]; do shift; done;
-
-    if [ $# -ge 2 ] && [ "$1" = -version-number ] && [ -n "$2" ];
-    then
-        major_version=${2%%:*};
-    fi
+    major_version=${1%%:*};
 }
 
 declare -A NODE;
@@ -40,34 +35,46 @@ proxied_dso=$1;    shift;
 proxy_excluded=$1; shift;
 proxy_extra=$1;    shift;
 proxy_src=$1;      shift;
-ldflags=$1;        shift;
+ltver=$1;          shift;
 
-parse_ldflags $ldflags;
+parse_ltver $ltver;
 
-proxied_dso=${proxied_dso%.so*}.so.${major_version};
+dso_base=${proxied_dso#lib}
+dso_base=${dso_base%.so*}
+proxied_dso=lib${dso_base}.so.${major_version};
 
 symbol_file=${proxy_src%.c}.symbols;
 map_file=${proxy_src%.c}.map;
 dlopen_file=${proxy_src}.dlopen;
-
-echo -n > $symbol_file;
-echo -n > $map_file;
+sharedir=$(pkg-config --variable=makeinc capsule)
 
 exec >$proxy_src.tmp;
 
-cat $top/capsule-shim.h;
+cat $sharedir/capsule-shim.h
 
-if (for pt in $proxied_dso $(cat $proxy_extra);
-    do
-        $top/print-libstubs $pt /host || exit 1;
-    done) > $symbol_file.tmp;
+# generate the .symbols file if it doesn't exist, or if the proxy_extra
+# control file has been updated:
+if [ $symbol_file -ot $proxy_extra ];
 then
-    mv $symbol_file.tmp $symbol_file;
-else
-    code=$?;
-    rm $symbol_file.tmp
-    exit $code;
-fi
+    echo -n > $symbol_file;
+    if (for pt in $proxied_dso $(cat $proxy_extra);
+        do
+            if [ x$V = x1 ];
+            then
+                echo "  $top/capsule-symbols $pt /host" >&2;
+            else
+                echo "  SYMBOLS $pt /host" >&2;
+            fi;
+            $top/capsule-symbols $pt /host || exit 1;
+        done) > $symbol_file.tmp;
+    then
+        mv $symbol_file.tmp $symbol_file;
+    else
+        code=$?;
+        rm $symbol_file.tmp
+        exit $code;
+    fi;
+fi;
 
 
 while read symbol version dependency;
@@ -110,24 +117,6 @@ then
     cat $dlopen_file;
     echo "// end of ${proxy_src%.c} dlopen wrapper";
     echo "// -------------------------------------------------------------";
-else
-    cat - <<EOF
-// -------------------------------------------------------------------------
-// start of default capsule dlopen wrapper function section
-static void *_dlopen (const char *filename, int flag)
-{
-    if( flag & RTLD_GLOBAL )
-    {
-        fprintf( stderr, "Warning: libcapsule dlopen wrapper cannot pass "
-                         "RTLD_GLOBAL to underlying dlmopen(%s...) call\\n",
-                 filename );
-        flag = (flag & ~RTLD_GLOBAL) & 0xfffff;
-    }
-    return capsule_shim_dlopen( symbol_ns, prefix, exclude, filename, flag );
-}
-// end of default capsule dlopen wrapper function section
-// -------------------------------------------------------------------------
-EOF
 fi
 
 cat - <<EOF
@@ -182,6 +171,7 @@ cat - <<EOF
 }
 EOF
 
+echo -n > $map_file;
 exec >& $map_file;
 
 for node in ${!NODE[@]};
@@ -195,5 +185,11 @@ do
     echo "};";
     echo;
 done;
+
+# scrub the (symbol version) map file if it's empty:
+if [ ! -s $map_file ];
+then
+    rm -f $map_file;
+fi;
 
 mv "$proxy_src.tmp" "$proxy_src";
