@@ -1,0 +1,120 @@
+#!/bin/bash
+
+set -e;
+set -u;
+
+libexec=$(dirname $0);
+
+target=$1;
+tree=${2:-/host};
+
+base=${target%%.so.*};
+base=${base%.so};
+name=${base#lib};
+lcbase=${base,,};
+
+dest=${3:-$base-proxy};
+ver=0;
+
+read x x ver x < <($libexec/capsule-version $target $tree);
+
+echo Generating project for $tree : $target $ver proxy;
+
+echo Creating project directory $dest;
+
+mkdir -p "$dest";
+cd $dest;
+mkdir -p shim;
+
+echo Working in $PWD;
+
+cat - <<EOF > README
+This is a libcapsule based proxy library.
+
+Its purpose is to allow a library ($target) to be loaded from a
+foreign filesystem tree ($tree) without exposing any other libraries
+from that tree to the program using it.
+
+You can export the symbols of more than one library via the proxy:
+To do so, add a line containing the bare (libFOO.so.X format) name 
+of each extra library to shim/lib@LIB@.so.c.shared and rebuild.
+
+You can also prevent a library from the foreign tree from being loaded
+at all (at least as a result of being a dependency of lib@LIB@): 
+To achieve this, add a line containing the bare (libFOO.so.X) name
+of the excluded library to shim/lib@LIB@.so.c.excluded and rebuild.
+
+The generated library will have the same name as the main proxy target
+($target). You can control the exact version number (cf libfoo.x.y.z)
+by setting CAPSULE_VERSION in Makefile.am
+EOF
+
+echo Extracting dynamic symbols from $tree : $target;
+
+$libexec/capsule-symbols $target $tree > shim/$base.so.symbols;
+
+echo Preparing proxy source files
+touch shim/$base.so.c.{shared,excluded};
+
+cat - <<EOF > shim/$base.so.c.dlopen
+static void *_dlopen (const char *filename, int flag)
+{
+    if( flag & RTLD_GLOBAL )
+    {
+        fprintf( stderr, "Warning: libcapsule dlopen wrapper cannot pass "
+                         "RTLD_GLOBAL to underlying dlmopen(%s...) call\\n",
+                 filename );
+        flag = (flag & ~RTLD_GLOBAL) & 0xfffff;
+    }
+    return capsule_shim_dlopen( symbol_ns, prefix, exclude, filename, flag );
+}
+EOF
+
+echo Initialising configure.ac;
+
+cat - <<EOF > configure.ac
+AC_INIT($lcbase-proxy, $ver)
+AC_CONFIG_MACRO_DIR([m4])
+
+dnl basename of the main library we are proxying for:
+AC_SUBST([LIB],[$name])
+
+dnl don't kvetch about gnu makefile syntax
+dnl and don't require ChangeLog &co if they don't exist
+AM_INIT_AUTOMAKE([-Wno-portability foreign])
+AM_SILENT_RULES([yes])
+LT_INIT
+
+PKG_CHECK_MODULES([CAPSULE], [capsule])
+PKG_CHECK_VAR([CAPSULE_MKINC], [capsule], [makeinc])
+
+AC_CONFIG_FILES([capsule-shim.mk:\$CAPSULE_MKINC/capsule-shim.mk.in Makefile])
+AC_OUTPUT()
+EOF
+
+echo Initialising Makefile.am;
+
+cat - <<EOF > Makefile.am
+CAPSULE_LIBRARY := $name
+CAPSULE_VERSION := $ver
+CAPSULE_TREE    := $tree
+
+include @CAPSULE_MKINC@/disabled.mk
+##include capsule-shim.mk##
+EOF
+
+echo Bootstrapping autoconf templates for $target;
+
+############################################################################
+# this stage generates the capsule-shim.mk from a template, which
+# we need to be in place before we generate the _real_ Makefile.in:
+(autoreconf -if;
+ ./configure;
+ sed -i -re 's@##(include .*)##@\1@' Makefile.am) > preconfigure.log 2>&1
+############################################################################
+
+echo Running initial configuration;
+autoreconf -ivf
+
+echo $PWD is ready for ./configure, see README for details;
+

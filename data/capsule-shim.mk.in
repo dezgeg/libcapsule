@@ -1,0 +1,46 @@
+V               ?= 0
+AUTOMAKE_OPTIONS = subdir-objects
+ACLOCAL_AMFLAGS  = -I m4
+AM_CFLAGS        = --std=c99 -D_GNU_SOURCE -Wall -Werror
+
+# locations of capsule helper files:
+libexecd  	     = $(shell pkg-config --variable=libexecdir capsule)
+mkstub    	     = $(libexecd)/capsule-mkstublib
+
+# capsule proxy library specific values:
+symvermap 		 = -Wl,--version-script=shim/lib@LIB@.so.map
+ltver            = $(subst .,:,$(CAPSULE_VERSION))
+
+shim_srcs        = shim/lib@LIB@.so.c
+shim_base        = $(basename $(shim_srcs))
+shim_once        = $(foreach y,map symbols,$(foreach x,$(shim_base),$x.$y))
+
+# the main target
+lib_LTLIBRARIES = lib@LIB@.la
+
+# don't clean up the shim_once built files, we don't want to be tied to
+# them at build time, we only care at project init time:
+CLEANFILES      = $(shim_srcs)
+BUILT_SOURCES   = $(shim_srcs)
+
+# allow stub file generation to be quiet or verbose per the value of V
+GENSTUB_V1 = 
+GENSTUB_V0 = @echo "  GENSTUB " $(subst $(word 1, $(basename $(filter shim/lib%,$^))),,$(filter shim/lib%,$^)) : $@;
+GENSTUB    = $(GENSTUB_V$(V))
+
+# regenerate if any dependencies get updated:
+shim/lib%.so.c: shim/lib%.so.c.excluded shim/lib%.so.c.dlopen shim/lib%.so.symbols
+	$(GENSTUB)V=$V $(mkstub) $$(basename $@ .c) $@.excluded $@.shared $@ $(ltver)
+
+# regenerate the exportable symbols list
+shim/lib%.so.symbols: shim/lib%.so.c.shared
+	@(ht=$(CAPSULE_TREE);                 \
+	  (for dso in lib@LIB@.so $$(cat $<); \
+	   do $(libexecd)/capsule-symbols $$dso $${ht:-/host}; done > $@.tmp) && \
+	  mv $@.tmp $@)
+
+# the settings that control out actual build:
+lib@LIB@_la_SOURCES = $(shim_srcs)
+lib@LIB@_la_LDFLAGS = $(CAPSULE_LIBS) -version-number $(ltver) \
+    $(if $(wildcard shim/lib@LIB@.so.map),$(symvermap))
+lib@LIB@_la_CFLAGS  = $(AM_CFLAGS) $(CAPSULE_CFLAGS) 
