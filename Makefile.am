@@ -15,73 +15,75 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with libcapsule.  If not, see <http://www.gnu.org/licenses/>.
 
-V                     ?= 0
-AUTOMAKE_OPTIONS       = subdir-objects
-ACLOCAL_AMFLAGS        = -I m4
-AM_CFLAGS              = --std=c99 -D_GNU_SOURCE -Wall -Werror
+AUTOMAKE_OPTIONS        = subdir-objects
+ACLOCAL_AMFLAGS         = -I m4
+AM_CFLAGS               = --std=c99 -D_GNU_SOURCE -Wall -Werror
 
-bin_PROGRAMS           = elf-dump print-libstubs
-lib_LTLIBRARIES        = libcapsule.la
+# installable items:
+libexec_PROGRAMS        = capsule-symbols capsule-version
+libexec_SCRIPTS         = data/capsule-mkstublib data/capsule-init-project
+lib_LTLIBRARIES         = libcapsule.la
+pkgconfigdir            = $(libdir)/pkgconfig
+pkgconfig_DATA          = data/capsule.pc
+include_HEADERS         = capsule/capsule.h
 
-lib_LTLIBRARIES       += libz.la
-lib_LTLIBRARIES       += libGL.la
+# demo program - keep this hanging around as it's a useful PoC
+noinst_PROGRAMS         = elf-dump
 
-include_HEADERS        = capsule/capsule.h
-nodist_include_HEADERS = utils/utils.h utils/dump.h utils/process-pt-dynamic.h
+elf_dump_SOURCES        = utils/elf-dump.c
+elf_dump_LDFLAGS        = -ldl
+elf_dump_SOURCES       += utils/utils.h
 
-elf_dump_SOURCES       = utils/elf-dump.c
-elf_dump_LDFLAGS       = -ldl
+# now the rules for building our installables:
+capsule_symbols_SOURCES = utils/print-libstubs.c \
+                          utils/utils.c          \
+                          utils/ld-cache.c       \
+                          utils/ld-libs.c
+capsule_symbols_SOURCES += \
+                          utils/utils.h          \
+                          utils/ld-cache.h       \
+                          utils/ld-libs.h
+capsule_symbols_LDFLAGS = -ldl -lelf
+# this looks like a no-op but it gives capsule_symbols its own target
+# so that libtool doesn't get bent out of shape about using an object
+# (ld-cache.o, ld-libs.o) as both part of a library and a standalone
+# executable:
+capsule_symbols_CFLAGS  = $(AM_CFLAGS)
 
-print_libstubs_SOURCES = utils/print-libstubs.c \
-                         utils/utils.c          \
-                         utils/ld-cache.c       \
-                         utils/ld-libs.c
-print_libstubs_LDFLAGS = -ldl -lelf
-print_libstubs_CFLAGS  = $(AM_CFLAGS)
+capsule_version_SOURCES = utils/print-version.c  \
+                          utils/utils.c          \
+                          utils/ld-cache.c       \
+                          utils/ld-libs.c
+capsule_version_SOURCES += \
+                          utils/utils.h          \
+                          utils/ld-cache.h       \
+                          utils/ld-libs.h
+capsule_version_LDFLAGS = -ldl -lelf
+capsule_version_CFLAGS  = $(AM_CFLAGS)
 
-libcapsule_la_SOURCES  = capsule/capsule-dlmopen.c  \
-                         capsule/capsule-relocate.c \
-                         capsule/capsule-init.c     \
-                         utils/utils.c utils/dump.c \
-                         utils/process-pt-dynamic.c \
-                         utils/mmap-info.c          \
-                         utils/ld-cache.c           \
-                         utils/ld-libs.c
 
-libcapsule_la_LDFLAGS  = -lelf
-############################################################################
-# shim libraries:
+libcapsule_la_SOURCES   = capsule/capsule-dlmopen.c  \
+                          capsule/capsule-relocate.c \
+                          capsule/capsule-init.c     \
+                          utils/utils.c              \
+                          utils/dump.c               \
+                          utils/process-pt-dynamic.c \
+                          utils/mmap-info.c          \
+                          utils/ld-cache.c           \
+                          utils/ld-libs.c
+libcapsule_la_LDFLAGS   = -lelf -version-number 0:1  \
+libcapsule_la_SOURCES  += utils/utils.h              \
+                          utils/dump.h               \
+                          utils/process-pt-dynamic.h \
+                          utils/mmap-info.h          \
+                          utils/ld-cache.h           \
+                          utils/ld-libs.h
 
-# libz to match version 1.2.8 and have the same symbol versioning:
-libz_la_SOURCES        = shim/libz.so.c
-libz_la_LDFLAGS        = -lcapsule -version-number 1:2:8 \
-                         -Wl,--version-script=shim/libz.so.map
-
-# libGL is always 1.2.0, and doesn't use symbol versioning:
-libGL_la_SOURCES       = shim/libGL.so.c
-libGL_la_LDFLAGS       = -lcapsule -version-number 1:2
-
-############################################################################
-shims      = $(patsubst shim/lib%.so.c,%,$(filter shim/lib%.so.c,$(SOURCES)))
-shim_srcs  = $(foreach l,$(shims),shim/lib$l.so.c)
-shim_base  = $(basename $(shim_srcs))
-shim_files = $(foreach y,map symbols,$(foreach x,$(shim_base),$x.$y))
-
-GENSTUB_V1 = 
-GENSTUB_V0 = @echo "  GENSTUB " $(subst $(word 1, $(basename $(filter shim/lib%,$^))),,$(filter shim/lib%,$^)) : $@;
-GENSTUB    = $(GENSTUB_V$(V))
+dist_pkgdata_DATA       = data/capsule-shim.h     \
+                          data/capsule-shim.mk.in \
+                          disabled.mk
 
 CLEANFILES    = $(shim_files) $(shim_srcs)
 BUILT_SOURCES = $(shim_srcs)
 
 include disabled.mk
-
-# explicitly depend on the generators and .excluded and .shared metafiles
-# depend on the .dlopen file IFF it exists
-shim/lib%.so.c: generate-stublib.sh print-libstubs capsule-shim.h shim/lib%.so.c.*
-	$(GENSTUB)$(top_srcdir)/$< $$(basename $@ .c) $@.excluded $@.shared $@ 	"$(lib$(*)_la_LDFLAGS)";
-
-debug:
-	@echo srcs : $(shim_srcs)
-	@echo files: $(shim_files)
-
