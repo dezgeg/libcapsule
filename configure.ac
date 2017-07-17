@@ -21,6 +21,7 @@ AC_CONFIG_MACRO_DIR([m4])
 dnl don't kvetch about gnu makefile syntax
 dnl and don't require ChangeLog &co if they don't exist
 AM_INIT_AUTOMAKE([-Wno-portability foreign])
+AM_SILENT_RULES([yes])
 
 LT_INIT
 
