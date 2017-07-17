@@ -392,7 +392,6 @@ int main (int argc, char **argv)
         else
             libname = argv[1];
 
-        fprintf(stderr, "opened %s from %s\n", argv[1], prefix);
         // dl_iterate_phdr won't work with private dlmopen namespaces:
         dump_symbols( handle, libname );
     }
