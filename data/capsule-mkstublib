@@ -36,6 +36,7 @@ proxy_excluded=$1; shift;
 proxy_extra=$1;    shift;
 proxy_src=$1;      shift;
 ltver=$1;          shift;
+proxy_tree=$1;     shift;
 
 parse_ltver $ltver;
 
@@ -61,11 +62,11 @@ then
         do
             if [ x$V = x1 ];
             then
-                echo "  $top/capsule-symbols $pt /host" >&2;
+                echo "  $top/capsule-symbols $pt $proxy_tree" >&2;
             else
-                echo "  SYMBOLS $pt /host" >&2;
+                echo "  SYMBOLS $pt $proxy_tree" >&2;
             fi;
-            $top/capsule-symbols $pt /host || exit 1;
+            $top/capsule-symbols $pt $proxy_tree || exit 1;
         done) > $symbol_file.tmp;
     then
         mv $symbol_file.tmp $symbol_file;
@@ -152,7 +153,7 @@ cat - <<EOF
     symbol_ns = LM_ID_NEWLM;
     prefix = secure_getenv( "CAPSULE_PREFIX" );
     if( !prefix )
-        prefix = "/host";
+        prefix = "$proxy_tree";
 
     capsule_init();
 

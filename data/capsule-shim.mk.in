@@ -30,7 +30,7 @@ GENSTUB    = $(GENSTUB_V$(V))
 
 # regenerate if any dependencies get updated:
 shim/lib%.so.c: shim/lib%.so.c.excluded shim/lib%.so.c.dlopen shim/lib%.so.symbols
-	$(GENSTUB)V=$V $(mkstub) $$(basename $@ .c) $@.excluded $@.shared $@ $(ltver)
+	$(GENSTUB)V=$V $(mkstub) $$(basename $@ .c) $@.excluded $@.shared $@ $(ltver) $(CAPSULE_TREE)
 
 # regenerate the exportable symbols list
 shim/lib%.so.symbols: shim/lib%.so.c.shared
