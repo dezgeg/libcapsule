@@ -11,10 +11,10 @@ may not.
 
 ============================================================================
 
-There can only ever be one copy of libc, libpthread and libdl shared
-between the capsule and the public namespace. This behaviour is baked
-into the stub library generator script. Probably nothing particularly
-sane will happen if you try to ignore this limitation.
+There can only ever be one copy of libdl shared between the capsule
+and the public namespace. This behaviour is baked into the stub library
+generator script. Probably nothing particularly sane will happen if you
+try to ignore this limitation.
 
 ============================================================================
 
@@ -52,6 +52,7 @@ the dlmopen libc call (and the linker) to be modified.
 
 If you are using Mesa before v 17.x you will need to use `patchelf' v0.9
 or later to add a DT_NEEDED entry for libglapi.so.0 to your dri.so drivers
-in order for the libGL capsule to be able to work.
+in order for the libGL capsule to be able to work (assuming it is
+libGL.so tat you are trying to proxy).
 
 ============================================================================

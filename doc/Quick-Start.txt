@@ -1,21 +1,30 @@
- In the top level directory:
+In the top level directory:
 
   autoreconf -ivf
   ./configure
   make
 
-libcapsule.so and capsules for libGL.so and libz.so will be in .libs/
-
-Currently make install probably won't do what you want: There are details
-yet to be thrashed out since libcapsule is atypical in that it deliberately
-creates libraries with the same name as existing ones: But you can copy.
+libcapsule.so will be in .libs/
 
 The test environment is currently:
 
 A chroot containing a debian/jessie filesystem with libGL.so removed,
-with the "real" OS filesystem bind mounted at /host.
+the libcapsule .deb installed and with the "real" OS filesystem bind
+mounted at /host.
 
 In the chroot:
+
+Generate a proxy project for libGL:
+
+  ~$ capsuletools=$(pkg-config --variable=libexecdir capsule)
+  ~$ $capsuletools/capsule-init-project libGL.so.1 /host 
+  ~$ cd libGL-proxy
+  ~$ extralib=".so.1 -glx.so.0 -dri2.so.0 -dri3.so.0 -present.so.0 -sync.so.1"
+  ~$ echo -n > shim/libGL.so.c.shared
+  ~$ for x in $extralib; do echo libxcb$x >> shim/libGL.so.c.shared; done
+  ~$ echo libX11.so >> shim/libGL.so.c.shared;
+  ~$ ./configure
+  ~$ make
 
 Copy the generated libGL.so into an appropriate directory.
 
