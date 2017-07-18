@@ -8,4 +8,5 @@ usr/lib/*/libcapsule.so
 usr/lib/*/pkgconfig/
 usr/lib/*/pkgconfig/capsule.pc
 usr/include/*
-usr/share/*/*
+usr/share/doc/libcapsule/* usr/share/doc/libcapsule-dev
+usr/share/libcapsule/*
