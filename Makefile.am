@@ -18,6 +18,7 @@
 AUTOMAKE_OPTIONS        = subdir-objects
 ACLOCAL_AMFLAGS         = -I m4
 AM_CFLAGS               = --std=c99 -D_GNU_SOURCE -Wall -Werror
+static_docs             = Building Debugging Limitations Quick-Start
 
 # installable items:
 libexec_PROGRAMS        = capsule-symbols capsule-version
@@ -26,6 +27,7 @@ lib_LTLIBRARIES         = libcapsule.la
 pkgconfigdir            = $(libdir)/pkgconfig
 pkgconfig_DATA          = data/capsule.pc
 include_HEADERS         = capsule/capsule.h
+dist_doc_DATA           = $(foreach doc,$(static_docs),doc/$(doc).txt)
 
 # demo program - keep this hanging around as it's a useful PoC
 noinst_PROGRAMS         = elf-dump
