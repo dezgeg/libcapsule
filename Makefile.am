@@ -88,4 +88,5 @@ dist_pkgdata_DATA       = data/capsule-shim.h     \
 CLEANFILES    = $(shim_files) $(shim_srcs)
 BUILT_SOURCES = $(shim_srcs)
 
+include documentation.mk
 include disabled.mk

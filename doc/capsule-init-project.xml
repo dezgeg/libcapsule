@@ -1,0 +1,94 @@
+<refentry id="capsule-init-project">
+
+  <refentryinfo>
+    <title>capsule-init-project</title>
+    <productname>libcapsule</productname>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Vivek</firstname>
+        <surname>Das Mohapatra</surname>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>capsule-init-project</refentrytitle>
+    <manvolnum>1</manvolnum>
+    <refmiscinfo class="manual">User Commands</refmiscinfo>
+  </refmeta>
+
+  <refnamediv>
+    <refname>capsule-init-project</refname>
+    <refpurpose>libcapsule proxy library project setup tool</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>capsule-init-project</command>
+      <arg choice="plain">TARGET</arg>
+      <arg choice="opt">
+        FOREIGN-TREE
+      <arg choice="opt">PROJECT-DIR</arg>
+      </arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      <command>capsule-init-project</command> creates a project which
+      uses libcapsule to create a proxy for a library, usually from
+      a foreign filesystem tree.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Arguments</title>
+    <variablelist>
+
+      <varlistentry>
+        <term><option>TARGET</option></term>
+        <listitem>
+          <para>
+            The base name of the target, of the form libFOO.so.X (eg libz.so.1)
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>FOREIGN-TREE</option></term>
+        <listitem>
+          <para>
+            Mount point of the filesystem tree which contains the target.
+          </para>
+          <para>
+            For example a container could mount a different root filesystem 
+            at /host in order to make its libraries available.
+          </para>
+          <para>
+            FOREIGN-TREE defaults to /host if unset or empty.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>PROJECT-DIR</option></term>
+        <listitem>
+          <para>The directory in which the new project will be created.</para>
+          <para>Defaults to ./libFOO-proxy (if TARGET is libFOO.so.X)</para>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1><title>See also</title>
+  <para>
+    <citerefentry>
+      <refentrytitle>capsule-mkstublib</refentrytitle>
+      <manvolnum>1</manvolnum>
+    </citerefentry>
+  </para>
+  </refsect1>
+</refentry>

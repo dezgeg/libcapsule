@@ -1,0 +1,163 @@
+<refentry id="capsule-mkstublib">
+
+  <refentryinfo>
+    <title>capsule-mkstublib</title>
+    <productname>libcapsule</productname>
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Vivek</firstname>
+        <surname>Das Mohapatra</surname>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>capsule-mkstublib</refentrytitle>
+    <manvolnum>1</manvolnum>
+    <refmiscinfo class="manual">User Commands</refmiscinfo>
+  </refmeta>
+
+  <refnamediv>
+    <refname>capsule-mkstublib</refname>
+
+    <refpurpose>
+      Command used by the libcapsule build system to generate proxy
+      library source files.
+    </refpurpose>
+
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>capsule-mkstublib</command>
+      <arg choice="plain">TARGET</arg>
+      <arg choice="plain">EXCLUDES</arg>
+      <arg choice="plain">EXPORTS</arg>
+      <arg choice="plain">OUTPUT</arg>
+      <arg choice="plain">DSO-VERSION</arg>
+      <arg choice="plain">TREE</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      <command>capsule-mkstublib</command> generates the source code
+      for a libcapsule proxy library from a standard set of inputs
+      (described below).
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Arguments</title>
+    <variablelist>
+
+      <varlistentry>
+        <term><option>TARGET</option></term>
+        <listitem>
+          <para>
+            The base name of the target, of the form libFOO.so.X (eg libz.so.1)
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>EXCLUDES</option></term>
+        <listitem>
+          <para>
+            A file containing a list of DSOs (one on each line) not to
+            include in the libcapsule proxy: DSOs listed here will not
+            be loaded from the foreign tree and must come from the
+            normal set searched by the linker.
+          </para>
+          <para>
+            For example i libz.so.1 is listed here, and TARGET depends
+            on libz.so.1 then it will be run-time linked against the
+            copy of libz from / - not any copies which are found under TREE
+          </para>
+          <para>
+            This file is empty by default in new prjects.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>EXPORTS</option></term>
+        <listitem>
+          <para>
+            A file containing a list of DSOs (one on each line) whose
+            symbols should be exported.
+          </para>
+          <para>Symbols from TARGET are always exported.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>EXPORTS</option></term>
+        <listitem>
+          <para>
+            A file containing a list of DSOs (one on each line) whose
+            symbols should be exported.
+          </para>
+          <para>Symbols from TARGET are always exported.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>OUTPUT</option></term>
+        <listitem>
+          <para>
+            Output filename
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>DSO-VERSION</option></term>
+        <listitem>
+          <para>
+            The version of the target library our proxy will pretend to be,
+            in the format MAJOR:MINOR:SUB
+          </para>
+          <para>
+            The format is the same format as consumed by libtool.
+            Only MAJOR must be present. 
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>TREE</option></term>
+        <listitem>
+          <para>
+            The mount point of the foreign filesystem tree from which TARGET
+            and its dependencies will be acquired.
+          </para>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+    
+  </refsect1>
+
+  <refsect1>
+    <title>Bugs</title>
+    <para>
+      The order of arguments is a bit pathological: This is for
+      historical reasons. Since the command is not expected to be
+      invoked outside of libcapsule's build scripts this is not
+      considered a major problem.
+    </para>
+  </refsect1>
+  
+  <refsect1>
+    <title>See also</title>
+    <para>
+      <citerefentry>
+        <refentrytitle>capsule-init-project</refentrytitle>
+        <manvolnum>1</manvolnum>
+      </citerefentry>
+    </para>
+  </refsect1>
+</refentry>
