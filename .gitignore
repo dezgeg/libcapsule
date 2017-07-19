@@ -45,3 +45,7 @@ data/dirconf.txt
 *.swp
 *.tmp
 install.log
+*.1
+*-overrides.txt
+*-sections.txt
+*.types
