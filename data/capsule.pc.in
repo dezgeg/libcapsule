@@ -2,7 +2,7 @@ prefix=@prefix@
 libdir=@libdir@
 includedir=@includedir@
 libexecdir=@libexecdir@
-datadir=@datadir@
+datadir=@datarootdir@
 makeinc=@datadir@/libcapsule
 
 Name: capsule
