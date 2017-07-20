@@ -48,4 +48,6 @@ install.log
 *.1
 *-overrides.txt
 *-sections.txt
+*-docs.xml
 *.types
+gtk-doc.make
