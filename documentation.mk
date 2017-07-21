@@ -8,7 +8,7 @@ XSLTPROC_FLAGS = \
 
 XSLT_MAN = http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl
 
-#include gtk-doc.make
+include gtk-doc.make
 
 %.1: doc/%.xml
 	$(AM_V_GEN) $(XSLTPROC) $(XSLTPROC_FLAGS) $(XSLT_MAN) $<
