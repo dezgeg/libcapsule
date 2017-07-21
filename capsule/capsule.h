@@ -26,6 +26,13 @@ typedef struct
     ElfW(Addr) real;
 } capsule_item_t;
 
+/**
+ * capsule_init:
+ *
+ * Does any initialisation necessary to use libcapsule's functions.
+ * Currently just initialises the debug flags from the CAPSULE_DEBUG
+ * environment variable.
+ */
 void capsule_init (void);
 
 int capsule_relocate (const char *target,
@@ -34,6 +41,41 @@ int capsule_relocate (const char *target,
                       capsule_item_t *relocations,
                       char **error);
 
+/**
+ * capsule_dlmopen:
+ * @dso: The name of the DSO to open (cf dlopen()) - eg libGL.so.1
+ * @prefix: The location of the foreign tree in which @dso should be found
+ * @namespace: Address of an #Lmid_t value (usually %LM_ID_NEWLM)
+ * @wrappers: Array of #capsule_item_t used to replace symbols in the namespace
+ * @debug: Internal debug flags. Pass 0 here.
+ * @exclude: an array of char *, each specfying a DSO not to load
+ * @errcode: location in which to store the error code on failure
+ * @error: location in which to store an error message on failure
+ *
+ * Opens @dso (a library) from a filesystem mounted at @prefix into a
+ * symbol namespace specified by @namespace, using dlmopen().
+ *
+ * Any symbols specified in @wrappers will be replaced with the
+ * corresponding address from @wrappers (allowing you to replace
+ * function definitions inside the namespace with your own).
+ * This is normally used to replace calls from inside the namespace to
+ * dlopen() (which would cause a segfault) with calls to dlmopen().
+ *
+ * The #Lmid_t valu addressed by @namespace should normally include
+ * %LM_ID_NEWLM to create a new namespace. The actual namespace used
+ * will be stored in @namespace after a successful call.
+ *
+ * If a value other than %LM_ID_NEWLM was passed in via @namespace it
+ * is not expected to change (and a change would indicate a bug or
+ * undefined behaviour).
+ *
+ * In addition to a bare libFOO.so.X style name, @dso may be an
+ * absolute path (or even a relative one) and in those cases should
+ * have the same effect as passing those values to dlopen(). This is
+ * not a normal use case though, and has not been heavily tested.
+ *
+ * An empty ("") or void (%NULL) @prefix is equivalent to "/".
+ */
 void *capsule_dlmopen (const char *dso,
                        const char *prefix,
                        Lmid_t *namespace,
