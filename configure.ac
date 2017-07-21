@@ -36,5 +36,5 @@ AC_RUN_IFELSE([AC_LANG_PROGRAM([#include <libelf.h>],
 
 AC_SEARCH_LIBS([dlmopen], [dl])
 AC_PATH_PROG([XSLTPROC], [xsltproc])
-
+GTK_DOC_CHECK
 AC_OUTPUT([Makefile data/capsule.pc data/dirconf.txt])
