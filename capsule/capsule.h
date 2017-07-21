@@ -19,6 +19,21 @@
 
 #include <link.h>
 
+/**
+ * capsule_item_t:
+ * @name: The name of the symbol to be relocated
+ * @shim: address of the ‘fake’ symbol in the proxy library
+ * @real: address of the ‘real’ symbol in the target library
+ *
+ * @shim may typically be left empty in calls to capsule_dlmopen()
+ * and capsule_relocate().
+ *
+ * @real may also be left empty in calls to capsule_relocate()
+ *
+ * Both slots will typically hold the correct values after a successful
+ * capsule… call. While this is sometimes important internally it is
+ * not usually of interest to the caller (except maybe for debugging)
+ */
 typedef struct
 {
     const char *name;
@@ -35,6 +50,27 @@ typedef struct
  */
 void capsule_init (void);
 
+/**
+ * capsule_relocate:
+ * @target: The DSO from which to export symbols (currently unused)
+ * @source: The dl handle from which to export symbols
+ * @debug: Internal debug flag. Pass 0 here.
+ * @relocations: Array of capsule_item_t specifying which symbols to export
+ * @error: location in which to store an error string on failure
+ *
+ * Returns: 0 on success, non-zero on failure.
+ *
+ * @source is typically the value returned by a successful capsule_dlmopen()
+ * call (although a handle returned by dlmopen() would also be reasonable).
+ *
+ * The #capsule_item_t entries in @relocations need only specify the symbol
+ * name: The shim and real fields will be populated automatically if they
+ * are not pre-filled (this is the normal use case, as it would be unusual
+ * to know these value in advance).
+ *
+ * In the unlikely event that an error message is returned in @error it is the
+ * caller's responsibility to free() it.
+ */
 int capsule_relocate (const char *target,
                       void *source,
                       unsigned long debug,
@@ -51,6 +87,8 @@ int capsule_relocate (const char *target,
  * @exclude: an array of char *, each specfying a DSO not to load
  * @errcode: location in which to store the error code on failure
  * @error: location in which to store an error message on failure
+ *
+ * Returns: A (void *) DSO handle, as per dlopen(3), or %NULL on error
  *
  * Opens @dso (a library) from a filesystem mounted at @prefix into a
  * symbol namespace specified by @namespace, using dlmopen().
@@ -85,6 +123,32 @@ void *capsule_dlmopen (const char *dso,
                        int *errcode,
                        char **error);
 
+/**
+ * capsule_shim_dlopen:
+ * @ns: An #Lmid_t value giving the namespace in which to operate
+ * @prefix: the mount point of the foreign tree in wich to find DSOs
+ * @exclude: Array of DSO names to ignore
+ * @file: base name of the target DSO (eg libz.so.1)
+ * @flag: dlopen() flags to pass to the real dlmopen() call
+ *
+ * Returns: a void * dl handle (cf dlopen())
+ *
+ * This helper function exists because dlopen() cannot safely be called
+ * by a DSO opened into a private namespace. It takes @file and @flag
+ * arguments (cf dlopen()) and @prefix, @exclude, and @namespace arguments
+ * (cf capsule_dlmopen(), although namespace is an #Lmid_t and not a pointer
+ * to one as in capsule_dlmopen()) and performs a safe dlmopen() call instead,
+ *  respecting the same restrictions as capsule_dlmopen().
+ *
+ * Typically this function is used to implement a safe wrapper for dlopen()
+ * which is passed via the wrappers argument to capsule_dlmopen(). This
+ * replaces calls to dlopen() by all DSOs in the capsule produced by
+ * capsule_dlmopen(), allowing libraries which use dlopen() to work inside
+ * the capsule.
+ *
+ * Limitations: RTLD_GLOBAL is not supported in @flag. This is a glibc
+ * limitation in the dlmopen() implementation.
+ */
 void *capsule_shim_dlopen(Lmid_t ns,
                           const char *prefix,
                           const char **exclude,
