@@ -4,6 +4,11 @@
 	@echo "DH $@"
 	dh $@ --with autoreconf
 
+confflags = --libexecdir=\$${libdir}/capsule --enable-gtk-doc
+
+override_dh_auto_configure:
+	dh_auto_configure -- $(confflags)
+
 override_dh_autoreconf:
-	NOCONFIGURE=1 dh_autoreconf ./autogen.sh -- --libexecdir=\$${libdir}/capsule
+	NOCONFIGURE=1 dh_autoreconf ./autogen.sh -- $(confflags)
 
