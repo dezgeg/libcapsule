@@ -47,8 +47,6 @@ data/dirconf.txt
 install.log
 *.1
 *.3
-*-overrides.txt
-*-sections.txt
 *-docs.xml
 *.types
 gtk-doc.make
@@ -56,3 +54,12 @@ gtk-doc.make
 *.tgz
 *.tar
 tmpl/
+*.stamp
+html/
+xml/
+libcapsule-*.txt
+*.args
+*.hierarchy
+*.interfaces
+*.prerequisites
+*.signals
