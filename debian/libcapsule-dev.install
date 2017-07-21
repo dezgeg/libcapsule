@@ -10,3 +10,4 @@ usr/lib/*/pkgconfig/capsule.pc
 usr/include/*
 usr/share/doc/libcapsule/* usr/share/doc/libcapsule-dev
 usr/share/libcapsule/*
+usr/share/gtk-doc/html/libcapsule/*
