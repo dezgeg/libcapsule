@@ -46,8 +46,13 @@ data/dirconf.txt
 *.tmp
 install.log
 *.1
+*.3
 *-overrides.txt
 *-sections.txt
 *-docs.xml
 *.types
 gtk-doc.make
+*.tar.*
+*.tgz
+*.tar
+tmpl/
