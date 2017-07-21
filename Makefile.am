@@ -88,5 +88,30 @@ dist_pkgdata_DATA       = data/capsule-shim.h     \
 CLEANFILES    = $(shim_files) $(shim_srcs)
 BUILT_SOURCES = $(shim_srcs)
 
-include documentation.mk
-include disabled.mk
+include $(top_srcdir)/disabled.mk
+
+# ============================================================================
+# standalone man pages
+include  $(top_srcdir)/documentation.mk
+
+# ============================================================================
+# gtk-doc configuration: see /usr/share/doc/gtk-doc-tools/examples/Makefile.am
+DOC_MODULE           = libcapsule
+DOC_MAIN_SGML_FILE   = $(DOC_MODULE)-docs.xml
+DOC_SOURCE_DIR       = capsule
+SCAN_OPTIONS         =
+MKDB_OPTIONS         = --xml-mode --output-format=xml
+MKTMPL_OPTIONS       =
+MKHTML_OPTIONS       =
+FIXXREF_OPTIONS      =
+HFILE_GLOB           =
+CFILE_GLOB           =
+EXTRA_HFILES         =
+IGNORE_HFILES        =
+HTML_IMAGES          =
+content_files        =
+expand_content_files =
+GTKDOC_CFLAGS        =
+GTKDOC_LIBS          =
+
+include $(top_srcdir)/gtk-doc.make
