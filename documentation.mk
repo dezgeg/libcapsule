@@ -8,7 +8,8 @@ XSLTPROC_FLAGS = \
         --stringparam man.authors.section.enabled 0 \
         --stringparam man.copyright.section.enabled 0
 
-XSLT_MAN = http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl
+XSLT_DOMAIN = docbook.sourceforge.net
+XSLT_MAN = http://$(XSLT_DOMAIN)/release/xsl/current/manpages/docbook.xsl
 
 %.1: doc/%.xml
 	$(AM_V_GEN) $(XSLTPROC) $(XSLTPROC_FLAGS) $(XSLT_MAN) $<
