@@ -1,7 +1,6 @@
 #!/usr/bin/make -f
 
 %:
-	@echo "DH $@"
 	dh $@ --with autoreconf
 
 confflags = --libexecdir=\$${libdir}/capsule --enable-gtk-doc
