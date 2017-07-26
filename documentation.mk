@@ -5,7 +5,7 @@ XSLTPROC_FLAGS = \
         --stringparam man.output.quietly 1 \
         --stringparam funcsynopsis.style ansi \
         --stringparam man.th.extra1.suppress 1 \
-        --stringparam man.authors.section.enabled 0 \
+        --stringparam man.authors.section.enabled 1 \
         --stringparam man.copyright.section.enabled 0
 
 XSLT_DOMAIN = docbook.sourceforge.net
