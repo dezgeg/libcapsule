@@ -99,7 +99,7 @@ MKDB_OPTIONS         = --xml-mode --output-format=xml
 MKTMPL_OPTIONS       =
 MKHTML_OPTIONS       =
 FIXXREF_OPTIONS      =
-HFILE_GLOB           =
+HFILE_GLOB           = capsule/capsule.h
 CFILE_GLOB           =
 EXTRA_HFILES         =
 IGNORE_HFILES        =
