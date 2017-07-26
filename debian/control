@@ -6,8 +6,11 @@ Standards-Version: 3.9.8
 Build-Depends:
  dh-autoreconf,
  autoconf,
+ automake,
  debhelper,
- libelf-dev
+ libelf-dev,
+ gtk-doc-tools,
+ xsltproc
 Vcs-Git: git://git.collabora.com/git/user/vivek/libcapsule.git
 Vcs-Browser: https://git.collabora.com/cgit/user/vivek/libcapsule.git/
 
