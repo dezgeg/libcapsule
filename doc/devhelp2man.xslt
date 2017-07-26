@@ -156,6 +156,25 @@
                                mode="retdesc"/>
         </xsl:element>
       </xsl:element>
+
+      <xsl:element name="refsect1">
+        <xsl:element name="title">See Also:</xsl:element>
+          <xsl:element name="para">
+            <xsl:for-each select="refsect1[@role='details']/refsect2[@role='function']/indexterm/primary">
+              <xsl:element name="link">
+                <xsl:element name="function">
+                  <xsl:value-of select="concat(.,'(3)')"/>
+                </xsl:element>
+              </xsl:element>
+              <xsl:choose>
+                <xsl:when test="position() != last()">
+                  <xsl:text>, </xsl:text>
+                </xsl:when>
+              </xsl:choose>
+            </xsl:for-each>
+          </xsl:element>
+      </xsl:element>
+
     </xsl:element>
   </xsl:template>
 
