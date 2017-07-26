@@ -85,14 +85,9 @@ dist_pkgdata_DATA       = data/capsule-shim.h     \
                           data/capsule-shim.mk.in \
                           disabled.mk
 
-CLEANFILES    = $(shim_files) $(shim_srcs)
 BUILT_SOURCES = $(shim_srcs)
 
 include $(top_srcdir)/disabled.mk
-
-# ============================================================================
-# standalone man pages
-include  $(top_srcdir)/documentation.mk
 
 # ============================================================================
 # gtk-doc configuration: see /usr/share/doc/gtk-doc-tools/examples/Makefile.am
@@ -115,3 +110,9 @@ GTKDOC_CFLAGS        =
 GTKDOC_LIBS          =
 
 include $(top_srcdir)/gtk-doc.make
+# ============================================================================
+# CLEANFILES is unconditionally set by gtk-doc.make, have to do these after:
+CLEANFILES    += $(shim_files) $(shim_srcs)
+# ============================================================================
+# standalone man pages
+include  $(top_srcdir)/documentation.mk
