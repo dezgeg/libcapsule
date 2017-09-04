@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <execinfo.h>
 
 #include "utils.h"
 #include "ld-libs.h"
@@ -20,6 +21,8 @@ struct dso_cache_search
     const char *name;
     ld_libs_t *ldlibs;
 };
+
+static const struct stat *stat_caller ();
 
 // make sure the prefix buffer is properly NUL terminated
 static inline void sanitise_ldlibs(ld_libs_t *ldlibs)
@@ -202,6 +205,34 @@ check_elf_constraints (ld_libs_t *ldlibs, int idx)
     return 1;
 }
 
+// check that the library we're opening is NOT ourself (this is to stop
+// a proxy libfoo.so.X from opening itself instead of the real target):
+// In normal situations we won't find ourself by accident as the path
+// prefix should place the real library ahead of us in the search order.
+// However LD_PRELOAD or a weirdly configured system or a missing target
+// library could result in the capsule library finding itself and
+// inifinitely looping, so we try to avoid that with this test:
+static int
+target_is_ourself  (ld_libs_t *ldlibs, int idx)
+{
+    const struct stat *cdso = stat_caller();
+    struct stat xdso = { 0 };
+
+    // Can't check, no stat info for orginal caller.
+    // Assume things will mostly be ok, mostly:
+    if( cdso == NULL )
+        return 0;
+
+    // if stat says we have the same device and inode as
+    // the target we're considering ourselves as a target:
+    if( fstat( ldlibs->needed[idx].fd, &xdso ) == 0 )
+        return ( cdso->st_dev == xdso.st_dev &&
+                 cdso->st_ino == xdso.st_ino );
+
+    // placeholder while this test is developed:
+    return 0;
+}
+
 static void clear_needed (dso_needed_t *needed)
 {
     elf_end( needed->dso );
@@ -267,6 +298,9 @@ ld_lib_open (ld_libs_t *ldlibs, const char *name, int i)
                      ldlibs->needed[i].fd  ,
                      ldlibs->needed[i].dso ,
                      acceptable );
+
+        if( acceptable )
+            acceptable = !target_is_ourself( ldlibs, i );
 
         // either clean up the current entry so we can find a better DSO
         // or (for a valid candidate) copy the original requested name in:
@@ -731,6 +765,7 @@ ld_libs_init (ld_libs_t *ldlibs,
         return 0;
     }
 
+    stat_caller();
     set_elf_constraints( ldlibs );
     // ==================================================================
     // set up the path prefix at which we expect to find the encapsulated
@@ -900,4 +935,51 @@ ld_libs_finish (ld_libs_t *ldlibs)
         free( ldlibs->error );
 
     ldlibs->error = NULL;
+}
+
+// this walks backwards along (up? down?) the stack until it finds
+// a DSO with a base address that differs from its own, then caches
+// the stat info for said path.
+// This is to support the libcapsule-proxies-will-not-reopen-themselves
+// infinite loop prevention mechanism.
+static const struct stat *
+stat_caller ()
+{
+    static struct stat cdso = { 0 };
+    static int done = 0;
+
+    Dl_info self = { 0 };
+    char caller[PATH_MAX] = { '\0' };
+
+    if( !done && dladdr( ld_libs_init, &self ) )
+    {
+        void *trace[16] = { NULL };
+        Dl_info dso     = { 0 };
+        void *origin    = self.dli_fbase;
+        int traced;
+
+        traced = backtrace( trace, sizeof(trace)/sizeof(void *) );
+
+        for( int x = 0; x < traced && caller[0] == '\0'; x++ )
+            if( dladdr( trace[x], &dso ) )
+                if( origin != dso.dli_fbase )
+                    safe_strncpy( caller, dso.dli_fname, PATH_MAX );
+
+        done = 1;
+
+        if( caller[0] == '\0' )
+        {
+            DEBUG( DEBUG_SEARCH|DEBUG_ELF,
+                   "unable to test for infinitely-looped capsule, "
+                   "proceeding anyway" );
+        }
+        else
+        {
+            DEBUG( DEBUG_SEARCH|DEBUG_ELF,
+                   "initial libcapsule user is %s", caller );
+            stat( caller, &cdso );
+        }
+    }
+
+    return (cdso.st_size > 0) ? &cdso : NULL;
 }
