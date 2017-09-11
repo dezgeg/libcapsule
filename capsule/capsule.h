@@ -20,6 +20,14 @@
 #include <link.h>
 
 /**
+ * capsule_addr:
+ *
+ * Identical to an ElfW(Addr) from libelf. You may treat this as
+ * equivalent to a void * when assigning to it.
+ */
+typedef ElfW(Addr) capsule_addr;
+
+/**
  * capsule_item:
  * @name: The name of the symbol to be relocated
  * @shim: address of the ‘fake’ symbol in the proxy library
@@ -39,8 +47,14 @@ typedef struct _capsule_item capsule_item;
 struct _capsule_item
 {
     const char *name;
-    ElfW(Addr) shim;
-    ElfW(Addr) real;
+    capsule_addr shim;
+    capsule_addr real;
+
+    /*< private >*/
+    void *unused0;
+    void *unused1;
+    void *unused2;
+    void *unused3;
 };
 
 /**
