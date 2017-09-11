@@ -132,7 +132,7 @@ find_symbol (int idx, const ElfW(Sym) *stab, const char *str, char **name)
 int
 try_relocation (ElfW(Addr) *reloc_addr, const char *name, void *data)
 {
-    capsule_item_t *map;
+    capsule_item *map;
     relocation_data_t *rdata = data;
 
     if( !name || !*name || !reloc_addr )

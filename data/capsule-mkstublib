@@ -128,7 +128,7 @@ static void __attribute__ ((constructor)) _capsule_init (void)
     char *capsule_error = NULL;
 
     // this is an array of the functions we want to act as a shim for:
-    capsule_item_t relocs[] =
+    capsule_item relocs[] =
       {
 EOF
 
@@ -144,7 +144,7 @@ cat - <<EOF
     // NOTE: the shim address here isn't used, but we give it the same
     // value as the real function address so it's never accidentally
     // a value the capsule code will care about:
-    capsule_item_t wrappers[] =
+    capsule_item wrappers[] =
       {
         { "dlopen", (ElfW(Addr)) _dlopen, (ElfW(Addr)) _dlopen },
         { NULL }

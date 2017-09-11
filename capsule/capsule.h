@@ -20,7 +20,7 @@
 #include <link.h>
 
 /**
- * capsule_item_t:
+ * capsule_item:
  * @name: The name of the symbol to be relocated
  * @shim: address of the ‘fake’ symbol in the proxy library
  * @real: address of the ‘real’ symbol in the target library
@@ -34,12 +34,14 @@
  * capsule… call. While this is sometimes important internally it is
  * not usually of interest to the caller (except maybe for debugging)
  */
-typedef struct
+typedef struct _capsule_item capsule_item;
+
+struct _capsule_item
 {
     const char *name;
     ElfW(Addr) shim;
     ElfW(Addr) real;
-} capsule_item_t;
+};
 
 /**
  * capsule_init:
@@ -55,7 +57,7 @@ void capsule_init (void);
  * @target: The DSO from which to export symbols (currently unused)
  * @source: The dl handle from which to export symbols
  * @debug: Internal debug flag. Pass 0 here.
- * @relocations: Array of capsule_item_t specifying which symbols to export
+ * @relocations: Array of capsule_item specifying which symbols to export
  * @error: location in which to store an error string on failure
  *
  * Returns: 0 on success, non-zero on failure.
@@ -63,7 +65,7 @@ void capsule_init (void);
  * @source is typically the value returned by a successful capsule_dlmopen()
  * call (although a handle returned by dlmopen() would also be reasonable).
  *
- * The #capsule_item_t entries in @relocations need only specify the symbol
+ * The #capsule_item entries in @relocations need only specify the symbol
  * name: The shim and real fields will be populated automatically if they
  * are not pre-filled (this is the normal use case, as it would be unusual
  * to know these value in advance).
@@ -74,7 +76,7 @@ void capsule_init (void);
 int capsule_relocate (const char *target,
                       void *source,
                       unsigned long debug,
-                      capsule_item_t *relocations,
+                      capsule_item *relocations,
                       char **error);
 
 /**
@@ -82,7 +84,7 @@ int capsule_relocate (const char *target,
  * @dso: The name of the DSO to open (cf dlopen()) - eg libGL.so.1
  * @prefix: The location of the foreign tree in which @dso should be found
  * @namespace: Address of an #Lmid_t value (usually %LM_ID_NEWLM)
- * @wrappers: Array of #capsule_item_t used to replace symbols in the namespace
+ * @wrappers: Array of #capsule_item used to replace symbols in the namespace
  * @debug: Internal debug flags. Pass 0 here.
  * @exclude: an array of char *, each specfying a DSO not to load
  * @errcode: location in which to store the error code on failure
@@ -117,7 +119,7 @@ int capsule_relocate (const char *target,
 void *capsule_dlmopen (const char *dso,
                        const char *prefix,
                        Lmid_t *namespace,
-                       capsule_item_t *wrappers,
+                       capsule_item *wrappers,
                        unsigned long debug,
                        const char **exclude,
                        int *errcode,

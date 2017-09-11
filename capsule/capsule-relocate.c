@@ -80,11 +80,11 @@ relocate_cb (struct dl_phdr_info *info, size_t size, void *data)
 int capsule_relocate (const char *target,
                       void *source,
                       unsigned long dbg,
-                      capsule_item_t *relocations,
+                      capsule_item *relocations,
                       char **error)
 {
     relocation_data_t rdata = { 0 };
-    capsule_item_t *map;
+    capsule_item *map;
     int mmap_errno = 0;
     char *mmap_error = NULL;
     int rval = 0;

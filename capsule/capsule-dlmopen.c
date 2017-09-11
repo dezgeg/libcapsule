@@ -82,7 +82,7 @@ static void
 wrap (const char *name,
       ElfW(Addr) base,
       ElfW(Dyn) *dyn,
-      capsule_item_t *wrappers)
+      capsule_item *wrappers)
 {
     int mmap_errno = 0;
     char *mmap_error = NULL;
@@ -172,7 +172,7 @@ excluded_from_wrap (const char *name, char **exclude)
 // strictly speaking we can wrap things other than dlopen(),
 // but that's currently all we use this for:
 static int install_wrappers ( void *dl_handle,
-                              capsule_item_t *wrappers,
+                              capsule_item *wrappers,
                               const char **exclude,
                               int *errcode,
                               char **error)
@@ -245,7 +245,7 @@ void *
 capsule_dlmopen (const char *dso,
                  const char *prefix,
                  Lmid_t *namespace,
-                 capsule_item_t *wrappers,
+                 capsule_item *wrappers,
                  unsigned long dbg,
                  const char **exclude,
                  int *errcode,
