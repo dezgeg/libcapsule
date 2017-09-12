@@ -120,7 +120,7 @@ int capsule_relocate (const char *target,
     // time to enter some sort of ... dangerous... zone:
     // we need the mmap()ed DSO regions to have the PROT_WRITE
     // flag set, so that if they've been RELRO linked we can still
-    // overwrite their PLT entries.
+    // overwrite their GOT entries.
     for( int i = 0; rdata.mmap_info[i].start != MAP_FAILED; i++ )
         if( mmap_entry_should_be_writable( &rdata.mmap_info[i] ) )
             add_mmap_protection( &rdata.mmap_info[i], PROT_WRITE );
