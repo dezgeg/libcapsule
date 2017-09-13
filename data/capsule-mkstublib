@@ -163,7 +163,7 @@ cat - <<EOF
     // a value the capsule code will care about:
     capsule_item wrappers[] =
       {
-        { "dlopen", (ElfW(Addr)) _dlopen, (ElfW(Addr)) _dlopen },
+        { "dlopen", (capsule_addr) _dlopen, (capsule_addr) _dlopen },
         { NULL }
       };
 
