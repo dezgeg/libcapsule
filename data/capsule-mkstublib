@@ -47,6 +47,7 @@ proxied_dso=lib${dso_base}.so.${major_version};
 symbol_file=${proxy_src%.c}.symbols;
 map_file=${proxy_src%.c}.map;
 dlopen_file=${proxy_src}.dlopen;
+dlsym_file=${proxy_src}.dlsym;
 sharedir=$(pkg-config --variable=makeinc capsule)
 
 exec >$proxy_src.tmp;
@@ -120,6 +121,15 @@ then
     echo "// -------------------------------------------------------------";
 fi
 
+if [ -f ${dlsym_file} ];
+then
+    echo "// -------------------------------------------------------------";
+    echo "// start of ${proxy_src%.c} dlsym wrapper";
+    cat $dlsym_file;
+    echo "// end of ${proxy_src%.c} dlsym wrapper";
+    echo "// -------------------------------------------------------------";
+fi
+
 cat - <<EOF
 
 static void __attribute__ ((constructor)) _capsule_init (void)
@@ -134,8 +144,15 @@ EOF
 
 while read sym x; do echo "         { \"$sym\" },"; done < $symbol_file;
 
+if [ -f $dlsym_file ];
+then
+    cat - <<EOF
+         { "dlsym", (capsule_addr) _dlsym },
+EOF
+fi;
+
 cat - <<EOF
-        { NULL }
+         { NULL }
       };
 
     // and this is an aray of functions we must override in the DSOs

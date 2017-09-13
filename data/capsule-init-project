@@ -70,6 +70,22 @@ static void *_dlopen (const char *filename, int flag)
 }
 EOF
 
+cat - <<EOF > shim/$base.so.c.dlsym
+// This allows symbols inside the capsule to be found by dlopen calls from
+// outside the capsule iff they are in one of the exported DSOs.
+//
+// This is useful in libGL shims as libGL has an ‘interesting’ history
+// of symbols appearing and disappearing so its users often do a
+// bizarre dlopen()/dlsym() dance instead of referring to a symbol
+// directly (and we may be missing those symbols from our static
+// export list even if the target libGL has them)
+static void *_dlsym (void *handle, const char *symbol)
+{
+    const char **valid_sources = { "libGL.so.1", NULL };
+    return capsule_shim_dlsym( dso, handle, symbol, valid_sources );
+}
+EOF
+
 echo Initialising configure.ac;
 
 cat - <<EOF > configure.ac

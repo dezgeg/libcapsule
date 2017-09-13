@@ -47,8 +47,8 @@ typedef struct _capsule_item capsule_item;
 struct _capsule_item
 {
     const char *name;
-    capsule_addr shim;
     capsule_addr real;
+    capsule_addr shim;
 
     /*< private >*/
     void *unused0;
