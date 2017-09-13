@@ -21,14 +21,35 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <execinfo.h>
 
 #include <capsule.h>
 
 #define UNVERSIONED_STUB(name) \
-    void name (void) { fprintf(stderr, "! SHIM " #name " called\n" ); return; }
+    void name (void)                                   \
+    {                                                  \
+        fprintf(stderr, "! SHIM " #name " called\n" ); \
+        backtrace_shim_call();                         \
+        return;                                        \
+    }
 
 #define VERSIONED_STUB(name,version) \
     UNVERSIONED_STUB(name);
+
+void backtrace_shim_call (void)
+{
+    void *trace[16] = { NULL };
+    int traced = 0;
+    char **symbols = NULL;
+
+    traced  = backtrace( trace, sizeof(trace)/sizeof(void *) );
+    symbols = backtrace_symbols( trace, traced );
+
+    for( int x = 1; x < traced; x++ )
+        fprintf( stderr, "  -> %s\n", symbols[x] );
+
+    free( symbols );
+}
 
 // We don't support versioned symbols properly yet, they need som
 // asm magic that looks like this and I'm not clear on the details:
