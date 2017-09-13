@@ -131,3 +131,21 @@ void set_debug_flags (const char *control)
             (debug_flags & DEBUG_RELOCS  ) ? 'Y' : 'n' ,
             (debug_flags & DEBUG_ELF     ) ? 'Y' : 'n' );
 }
+
+// soname: bare libfoo.so.X style name
+// path: [possibly absolute] path to DSO
+// return true if soname: libFOO.so.X matches
+// path: /path/to/libFOO.so.X.Y or /path/to/libFOO.so.X
+int soname_matches_path (const char *soname, const char *path)
+{
+    const char *path_soname = strrchr( path, '/' );
+    const char *pattern = path_soname ? path_soname + 1: path;
+    const size_t slen = strlen( soname );
+
+    if( strncmp( soname, pattern, slen ) != 0 )
+        return 0;
+
+    const char *end = pattern + slen;
+
+    return ( *end == '\0' || *end == '.' );
+}

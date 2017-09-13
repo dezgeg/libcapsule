@@ -29,5 +29,6 @@ man_MANS   += capsule_dlmopen.3
 man_MANS   += capsule_init.3
 man_MANS   += capsule_relocate.3
 man_MANS   += capsule_shim_dlopen.3
+man_MANS   += capsule_shim_dlsym.3
 
 CLEANFILES += $(man_MANS)

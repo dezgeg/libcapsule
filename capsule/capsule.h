@@ -170,3 +170,37 @@ void *capsule_shim_dlopen(Lmid_t ns,
                           const char **exclude,
                           const char *file,
                           int flag);
+
+/**
+ * capsule_shim_dlsym:
+ * @capsule: A dl handle as returned by capsule_dlmopen()
+ * @handle: A dl handle, as passed to dlsym()
+ * @symbol: A symbol name, as passed to dlsym()
+ * @exported: An array of DSO names considered to ba valid symbol sources
+ *
+ * Returns: a void * symbol address (cf dlsym())
+ *
+ * Some libraries have a use pattern in which their caller/user
+ * uses dlsym() to obtain symbols rather than using those symbols
+ * directly in its own code (libGL is an example of this).
+ *
+ * Since the target library may have a different symbol set than the
+ * one the libcapsule proxy shim was generated from we can't rely on
+ * dlsym() finding those symbols in the shim's symbol table.
+ *
+ * Instead we must intercept dlsym() calls made outside the capsule
+ * and attempt to look for the required symbol in the namespace defined
+ * by @capsule first - If the required symbol is found there AND is
+ * from one of the DSO names present in @exported then that symbol is
+ * returned. If either of those conditions is not met then a normal
+ * dlsym call with the passed handle is made.
+ *
+ * This function provides the functionality described above, and is
+ * intended for use in a suitable wrapper implemented in the the shim
+ * library.
+ */
+void *
+capsule_shim_dlsym (void *capsule,
+                    void *handle,
+                    const char *symbol,
+                    const char **exported);

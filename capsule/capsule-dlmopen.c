@@ -419,3 +419,38 @@ cleanup:
     ld_libs_finish( &ldlibs );
     return res;
 }
+
+static int
+dso_is_exported (const char *dsopath, const char **exported)
+{
+    for( const char **ex = exported; ex && *ex; ex++ )
+        if( soname_matches_path( *ex, dsopath ) )
+            return 1;
+
+    return 0;
+}
+
+void *
+capsule_shim_dlsym (void *capsule,
+                    void *handle,
+                    const char *symbol,
+                    const char **exported)
+{
+    void *addr = NULL;
+
+    if( (addr = dlsym( capsule, symbol )) )
+    {
+        Dl_info dso = { 0 };
+
+        // only keep addr from the capsule if it's from an exported DSO:
+        // or if we are unable to determine where it came from (what?)
+        if( dladdr( addr, &dso ) )
+            if( !dso_is_exported( dso.dli_fname, exported ) )
+                addr = NULL;
+    }
+
+    if( addr == NULL )
+        addr = dlsym( handle, symbol );
+
+    return addr;
+}
