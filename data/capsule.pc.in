@@ -2,6 +2,7 @@ prefix=@prefix@
 libdir=@libdir@
 includedir=@includedir@
 libexecdir=@libexecdir@
+datarootdir=@datarootdir@
 datadir=@datarootdir@
 makeinc=@datadir@/libcapsule
 
