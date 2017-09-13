@@ -1,7 +1,3 @@
-usr/lib/*/capsule/capsule-symbols
-usr/lib/*/capsule/capsule-version
-usr/lib/*/capsule/capsule-mkstublib
-usr/lib/*/capsule/capsule-init-project
 usr/lib/*/libcapsule.la
 usr/lib/*/libcapsule.a
 usr/lib/*/libcapsule.so
@@ -11,4 +7,4 @@ usr/include/*
 usr/share/doc/libcapsule/* usr/share/doc/libcapsule-dev
 usr/share/libcapsule/*
 usr/share/gtk-doc/html/libcapsule/*
-usr/share/man/*/*
+usr/share/man/man3/*

@@ -1,0 +1,5 @@
+usr/lib/*/capsule/capsule-symbols
+usr/lib/*/capsule/capsule-version
+usr/lib/*/capsule/capsule-mkstublib
+usr/lib/*/capsule/capsule-init-project
+usr/share/man/man1/*
