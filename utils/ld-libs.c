@@ -467,7 +467,7 @@ search_ldpath (const char *name, const char *ldpath, ld_libs_t *ldlibs, int i)
 // normal dynamic linker and set up the needed array entry at offset i.
 //
 // Exceptions:
-// we don't support DT_RPATH/DT_RUNPATH
+// we do handle DT_RPATH/DT_RUNPATH
 // we don't handle ${ORIGIN} and similar
 // we will respect any path prefix specified in ldlibs
 //
@@ -475,7 +475,8 @@ search_ldpath (const char *name, const char *ldpath, ld_libs_t *ldlibs, int i)
 // and will contain a valid fd for the DSO. (and search_ldcache will
 // return true). Otherwise the entry will be empty and we will return false:
 static int
-dso_find (const char *name, ld_libs_t *ldlibs, int i)
+dso_find (const char *name, ld_libs_t *ldlibs, int i, const char *rpath,
+          const char *runpath)
 {
     int found = 0;
     const char *ldpath = NULL;
@@ -532,11 +533,19 @@ dso_find (const char *name, ld_libs_t *ldlibs, int i)
         return 0;
 
     LDLIB_DEBUG( ldlibs, DEBUG_SEARCH, "target DSO is %s", name );
-    // now search LD_LIBRARY_PATH, the ld.so.cache, and the default locations
-    // in that order (similar algorithm to the linker, but with the RPATH and
-    // ${ORIGIN} support dropped)
+    // now search RPATH, LD_LIBRARY_PATH, RUNPATH, the ld.so.cache, and the
+    // default locations in that order (similar algorithm to the linker, but
+    // with the ${ORIGIN} support dropped)
+    if( rpath )
+        if( (found = search_ldpath( name, rpath, ldlibs, i )) )
+            return found;
+
     if( (ldpath = getenv( "LD_LIBRARY_PATH" )) )
         if( (found = search_ldpath( name, ldpath, ldlibs, i )) )
+            return found;
+
+    if( runpath )
+        if( (found = search_ldpath( name, runpath, ldlibs, i )) )
             return found;
 
     if( (found = search_ldcache( name, ldlibs, i )) )
@@ -571,6 +580,47 @@ already_needed (dso_needed_t *needed, int requesting_idx, const char *name)
     return 0;
 }
 
+static void
+_dso_get_runpaths (ld_libs_t *ldlibs, int idx, char** rpath, char** runpath)
+{
+    Elf_Scn *scn = NULL;
+
+    while((scn = elf_nextscn( ldlibs->needed[idx].dso, scn )) != NULL)
+    {
+        GElf_Shdr shdr = {};
+        gelf_getshdr( scn, &shdr );
+
+        // SHT_DYNAMIC is the only section type we care about here:
+        if( shdr.sh_type == SHT_DYNAMIC )
+        {
+            int i = 0;
+            GElf_Dyn dyn = {};
+            Elf_Data *edata = NULL;
+
+            edata = elf_getdata( scn, edata );
+
+            // process eaach DT_* entry in the SHT_DYNAMIC section:
+            while( !ldlibs->error                  &&
+                   gelf_getdyn( edata, i++, &dyn ) &&
+                   (dyn.d_tag != DT_NULL)          )
+            {
+                dso_needed_t *needed = ldlibs->needed;
+
+                if( dyn.d_tag == DT_RPATH )
+                {
+                    *rpath = strdup(elf_strptr( needed[idx].dso, shdr.sh_link,
+                            dyn.d_un.d_val ));
+                }
+                else if( dyn.d_tag == DT_RUNPATH )
+                {
+                    *runpath = strdup(elf_strptr( needed[idx].dso, shdr.sh_link,
+                            dyn.d_un.d_val ));
+                }
+            }
+        }
+    }
+}
+
 // we're getting to the meat of it: process a DSO at offset idx in the
 // needed array, extract each SHT_DYNAMIC section, then make sure we
 // can find a DSO to satisfy every DT_NEEDED sub-entry in the section.
@@ -585,6 +635,10 @@ static void
 _dso_iterate_sections (ld_libs_t *ldlibs, int idx)
 {
     Elf_Scn *scn = NULL;
+    char *rpath = NULL;
+    char *runpath = NULL;
+
+    _dso_get_runpaths(ldlibs, idx, &rpath, &runpath);
 
     //debug(" ldlibs: %p; idx: %d (%s)", ldlibs, idx, ldlibs->needed[idx].name);
 
@@ -663,7 +717,7 @@ _dso_iterate_sections (ld_libs_t *ldlibs, int idx)
                     break;
                 }
 
-                if( !dso_find( next_dso, ldlibs, next ) )
+                if( !dso_find( next_dso, ldlibs, next, rpath, runpath ) )
                 {
                     ldlibs->not_found[ ldlibs->last_not_found++ ] =
                       strdup( next_dso );
@@ -679,6 +733,8 @@ _dso_iterate_sections (ld_libs_t *ldlibs, int idx)
             }
         }
     }
+    free(rpath);
+    free(runpath);
 }
 
 static void
@@ -806,7 +862,7 @@ ld_libs_init (ld_libs_t *ldlibs,
 int
 ld_libs_set_target (ld_libs_t *ldlibs, const char *target)
 {
-    int rv = dso_find( target, ldlibs, 0 );
+    int rv = dso_find( target, ldlibs, 0, NULL, NULL );
 
     // failed but we don't have an error message:
     if( !rv && !ldlibs->error )
