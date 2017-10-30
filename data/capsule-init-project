@@ -81,7 +81,7 @@ cat - <<EOF > shim/$base.so.c.dlsym
 // export list even if the target libGL has them)
 static void *_dlsym (void *handle, const char *symbol)
 {
-    const char **valid_sources = { "libGL.so.1", NULL };
+    const char *valid_sources[] = { "libGL.so.1", NULL };
     return capsule_shim_dlsym( dso, handle, symbol, valid_sources );
 }
 EOF
