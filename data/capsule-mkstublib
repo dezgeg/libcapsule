@@ -164,6 +164,7 @@ cat - <<EOF
     capsule_item wrappers[] =
       {
         { "dlopen", (capsule_addr) _dlopen, (capsule_addr) _dlopen },
+        { "dlopen@@GLIBC_2.2.5", (capsule_addr) _dlopen, (capsule_addr) _dlopen },
         { NULL }
       };
 
