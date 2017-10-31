@@ -41,3 +41,5 @@
 char *safe_strncpy (char *dest, const char *src, size_t n);
 int   resolve_link (const char *prefix, char *path, char *dir);
 int soname_matches_path (const char *soname, const char *path);
+
+extern void *(*capsule_dlsym)(void* handle, const char* symbol);

@@ -438,7 +438,7 @@ capsule_shim_dlsym (void *capsule,
 {
     void *addr = NULL;
 
-    if( (addr = dlsym( capsule, symbol )) )
+    if( (addr = capsule_dlsym( capsule, symbol )) )
     {
         Dl_info dso = { 0 };
 
@@ -450,7 +450,7 @@ capsule_shim_dlsym (void *capsule,
     }
 
     if( addr == NULL )
-        addr = dlsym( handle, symbol );
+        addr = capsule_dlsym( handle, symbol );
 
     return addr;
 }

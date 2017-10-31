@@ -111,10 +111,10 @@ int capsule_relocate (const char *target,
         for( map = relocations; map->name; map++ )
         {
             if( !map->shim )
-                map->shim = (ElfW(Addr)) dlsym( RTLD_DEFAULT, map->name );
+                map->shim = (ElfW(Addr)) capsule_dlsym( RTLD_DEFAULT, map->name );
 
             if( !map->real )
-                map->real = (ElfW(Addr)) dlsym( source, map->name );
+                map->real = (ElfW(Addr)) capsule_dlsym( source, map->name );
         }
 
     // time to enter some sort of ... dangerous... zone:
