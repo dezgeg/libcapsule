@@ -14,6 +14,7 @@
 #include "utils.h"
 #include "ld-libs.h"
 
+int gigantic_hack_do_not_use;
 
 struct dso_cache_search
 {
@@ -218,6 +219,8 @@ target_is_ourself  (ld_libs_t *ldlibs, int idx)
     const struct stat *cdso = stat_caller();
     struct stat xdso = { 0 };
 
+    if (gigantic_hack_do_not_use)
+        return 0;
     // Can't check, no stat info for orginal caller.
     // Assume things will mostly be ok, mostly:
     if( cdso == NULL )

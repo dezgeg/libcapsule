@@ -364,6 +364,8 @@ dump_symbols (void *handle, const char *libname)
 
 }
 
+extern int gigantic_hack_do_not_use;
+
 int main (int argc, char **argv)
 {
     const char *libname;
@@ -379,10 +381,13 @@ int main (int argc, char **argv)
         exit( 1 );
     }
 
+    gigantic_hack_do_not_use = 1;
+    set_debug_flags( secure_getenv("CAPSULE_DEBUG") );
+
     if( argc > 2 )
         prefix = argv[2];
 
-    if( ld_libs_init( &ldlibs, NULL, prefix, 0, &error ) &&
+    if( ld_libs_init( &ldlibs, NULL, prefix, DEBUG_ALL, &error ) &&
         ld_libs_set_target( &ldlibs, argv[1] )           &&
         ld_libs_find_dependencies( &ldlibs )             &&
         (handle = ld_libs_load( &ldlibs, &ns, 0, &error)) )
