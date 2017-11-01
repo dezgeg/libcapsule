@@ -536,6 +536,10 @@ dso_find (const char *name, ld_libs_t *ldlibs, int i, const char *rpath,
         return 0;
 
     LDLIB_DEBUG( ldlibs, DEBUG_SEARCH, "target DSO is %s", name );
+    // NixOS
+    if ( !gigantic_hack_do_not_use && !strcmp( name, "libGL.so.1") )
+        return search_ldpath( name, "/run/opengl-driver/lib:/run/opengl-driver-32/lib", ldlibs, i );
+
     // now search RPATH, LD_LIBRARY_PATH, RUNPATH, the ld.so.cache, and the
     // default locations in that order (similar algorithm to the linker, but
     // with the ${ORIGIN} support dropped)
