@@ -142,15 +142,11 @@ static void __attribute__ ((constructor)) _capsule_init (void)
       {
 EOF
 
-while read sym x; do
-    if [ "$sym" = XFree ]; then continue; fi
-    echo "         { \"$sym\" },"
-done < $symbol_file;
+while read sym x; do echo "         { \"$sym\" },"; done < $symbol_file;
 
 if [ -f $dlsym_file ];
 then
     cat - <<EOF
-         { "XFree", (capsule_addr) free },
          { "dlsym", (capsule_addr) _dlsym },
 EOF
 fi;
