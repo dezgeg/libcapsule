@@ -23,6 +23,7 @@
 #include "ld-cache.h"
 #include "ld-libs.h"
 
+extern int gigantic_hack_do_not_use;
 int main (int argc, char **argv)
 {
     const char *libname;
@@ -31,6 +32,7 @@ int main (int argc, char **argv)
     int error = 0;
     int e = 0;
 
+    gigantic_hack_do_not_use = 1;
     if( argc < 2 )
     {
         fprintf( stderr, "usage: %s <ELF-DSO> [/path/prefix]\n", argv[0] );
