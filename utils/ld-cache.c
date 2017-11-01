@@ -91,6 +91,8 @@ ld_cache_open (ldcache_t *cache, const char *path)
 {
     struct stat ldcache = {};
 
+    return 1; /* HACK */
+
     ld_cache_close( cache );
 
     cache->fd = open( path, O_RDONLY );
@@ -195,6 +197,8 @@ ld_cache_foreach (ldcache_t *cache, ld_cache_entry_cb cb, void *data)
 {
     int rval = 0;
     const char *base = cache->data;
+
+    return 0; /* HACK */
 
     switch( cache->type )
     {
